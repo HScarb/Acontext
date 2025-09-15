@@ -10,7 +10,7 @@ class CoreConfig(BaseModel):
     llm_openai_default_query: Optional[Mapping[str, Any]] = None
     llm_openai_default_header: Optional[Mapping[str, Any]] = None
     llm_response_timeout: float = 60
-    llm_sdk: Literal["openai"] = "openai"
+    llm_sdk: Literal["openai", "anthropic"] = "openai"
 
     llm_simple_model: str = "gpt-4.1-mini"
 

@@ -1,6 +1,7 @@
 import time
 from typing import Callable, Awaitable, Any, Mapping, Optional
 from .openai_sdk import openai_complete
+from .anthropic_sdk import anthropic_complete
 from ...schema.llm import LLMResponse
 from ...schema.result import Result
 from ...env import LOG, CONFIG, get_logging_contextvars, bound_logging_vars
@@ -8,7 +9,10 @@ from ...env import LOG, CONFIG, get_logging_contextvars, bound_logging_vars
 
 COMPLETE_FUNC = Callable[..., Awaitable[LLMResponse]]
 
-FACTORIES: Mapping[str, COMPLETE_FUNC] = {"openai": openai_complete}
+FACTORIES: Mapping[str, COMPLETE_FUNC] = {
+    "openai": openai_complete,
+    "anthropic": anthropic_complete,
+}
 
 
 async def llm_complete(

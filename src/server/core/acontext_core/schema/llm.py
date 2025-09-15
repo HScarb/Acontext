@@ -20,4 +20,3 @@ class LLMResponse(BaseModel):
     json_content: Optional[dict] = None
     function_call: Optional[LLMToolCall] = None
     tool_calls: Optional[list[LLMToolCall]] = None
-    tool_call_id: Optional[str] = None
