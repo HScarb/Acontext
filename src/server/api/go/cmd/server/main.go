@@ -46,14 +46,16 @@ func main() {
 	spaceHandler := do.MustInvoke[*handler.SpaceHandler](inj)
 	blockHandler := do.MustInvoke[*handler.BlockHandler](inj)
 	sessionHandler := do.MustInvoke[*handler.SessionHandler](inj)
+	artifactHandler := do.MustInvoke[*handler.ArtifactHandler](inj)
 
 	engine := router.NewRouter(router.RouterDeps{
-		Config:         cfg,
-		DB:             db,
-		Log:            log,
-		SpaceHandler:   spaceHandler,
-		BlockHandler:   blockHandler,
-		SessionHandler: sessionHandler,
+		Config:          cfg,
+		DB:              db,
+		Log:             log,
+		SpaceHandler:    spaceHandler,
+		BlockHandler:    blockHandler,
+		SessionHandler:  sessionHandler,
+		ArtifactHandler: artifactHandler,
 	})
 
 	addr := fmt.Sprintf("%s:%d", cfg.App.Host, cfg.App.Port)

@@ -51,6 +51,7 @@ func BuildContainer() *do.Injector {
 				&model.Session{},
 				&model.Message{},
 				&model.Block{},
+				&model.Artifact{},
 			)
 		}
 
@@ -108,6 +109,9 @@ func BuildContainer() *do.Injector {
 	do.Provide(inj, func(i *do.Injector) (repo.BlockRepo, error) {
 		return repo.NewBlockRepo(do.MustInvoke[*gorm.DB](i)), nil
 	})
+	do.Provide(inj, func(i *do.Injector) (repo.ArtifactRepo, error) {
+		return repo.NewArtifactRepo(do.MustInvoke[*gorm.DB](i)), nil
+	})
 
 	// Service
 	do.Provide(inj, func(i *do.Injector) (service.SpaceService, error) {
@@ -125,6 +129,12 @@ func BuildContainer() *do.Injector {
 	do.Provide(inj, func(i *do.Injector) (service.BlockService, error) {
 		return service.NewBlockService(do.MustInvoke[repo.BlockRepo](i)), nil
 	})
+	do.Provide(inj, func(i *do.Injector) (service.ArtifactService, error) {
+		return service.NewArtifactService(
+			do.MustInvoke[repo.ArtifactRepo](i),
+			do.MustInvoke[*blob.S3Deps](i),
+		), nil
+	})
 
 	// Handler
 	do.Provide(inj, func(i *do.Injector) (*handler.SpaceHandler, error) {
@@ -135,6 +145,9 @@ func BuildContainer() *do.Injector {
 	})
 	do.Provide(inj, func(i *do.Injector) (*handler.BlockHandler, error) {
 		return handler.NewBlockHandler(do.MustInvoke[service.BlockService](i)), nil
+	})
+	do.Provide(inj, func(i *do.Injector) (*handler.ArtifactHandler, error) {
+		return handler.NewArtifactHandler(do.MustInvoke[service.ArtifactService](i)), nil
 	})
 
 	return inj

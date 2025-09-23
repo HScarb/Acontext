@@ -77,12 +77,13 @@ func projectAuthMiddleware(cfg *config.Config, db *gorm.DB) gin.HandlerFunc {
 }
 
 type RouterDeps struct {
-	Config         *config.Config
-	DB             *gorm.DB
-	Log            *zap.Logger
-	SpaceHandler   *handler.SpaceHandler
-	BlockHandler   *handler.BlockHandler
-	SessionHandler *handler.SessionHandler
+	Config          *config.Config
+	DB              *gorm.DB
+	Log             *zap.Logger
+	SpaceHandler    *handler.SpaceHandler
+	BlockHandler    *handler.BlockHandler
+	SessionHandler  *handler.SessionHandler
+	ArtifactHandler *handler.ArtifactHandler
 }
 
 func NewRouter(d RouterDeps) *gin.Engine {
@@ -155,6 +156,15 @@ func NewRouter(d RouterDeps) *gin.Engine {
 
 			session.POST("/:session_id/messages", d.SessionHandler.SendMessage)
 			session.GET("/:session_id/messages", d.SessionHandler.GetMessages)
+		}
+
+		artifact := v1.Group("/artifact")
+		{
+			artifact.POST("", d.ArtifactHandler.CreateArtifact)
+			artifact.GET("", d.ArtifactHandler.ListArtifacts)
+			artifact.GET("/:artifact_id", d.ArtifactHandler.GetArtifact)
+			artifact.PUT("/:artifact_id", d.ArtifactHandler.UpdateArtifact)
+			artifact.DELETE("/:artifact_id", d.ArtifactHandler.DeleteArtifact)
 		}
 	}
 	return r
