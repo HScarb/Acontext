@@ -147,7 +147,7 @@ func (h *FileHandler) DeleteFile(c *gin.Context) {
 
 type GetFileReq struct {
 	FilePath      string `form:"file_path" json:"file_path" binding:"required"` // File path including filename
-	WithPublicURL bool   `form:"with_public_url,default=false" json:"with_public_url" example:"false"`
+	WithPublicURL bool   `form:"with_public_url,default=true" json:"with_public_url" example:"true"`
 	Expire        int    `form:"expire,default=3600" json:"expire" example:"3600"` // Expire time in seconds for presigned URL
 }
 
@@ -165,7 +165,7 @@ type GetFileResp struct {
 //	@Produce		json
 //	@Param			artifact_id		path	string	true	"Artifact ID"												Format(uuid)	Example(123e4567-e89b-12d3-a456-426614174000)
 //	@Param			file_path		query	string	true	"File path including filename"								example:"/documents/report.pdf"
-//	@Param			with_public_url	query	boolean	false	"Whether to return public URL, default is false"			example:"false"
+//	@Param			with_public_url	query	boolean	false	"Whether to return public URL, default is true"				example:"true"
 //	@Param			expire			query	int		false	"Expire time in seconds for presigned URL (default: 3600)"	example:"3600"
 //	@Security		BearerAuth
 //	@Success		200	{object}	serializer.Response{data=handler.GetFileResp}

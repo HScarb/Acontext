@@ -498,7 +498,7 @@ paths:
         name: file_path
         required: true
         type: string
-      - description: Whether to return public URL, default is false
+      - description: Whether to return public URL, default is true
         in: query
         name: with_public_url
         type: boolean
@@ -801,7 +801,7 @@ paths:
         in: query
         name: cursor
         type: string
-      - description: Whether to return asset public url, default is false
+      - description: Whether to return asset public url, default is true
         in: query
         name: with_asset_public_url
         type: string

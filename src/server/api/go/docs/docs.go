@@ -131,7 +131,7 @@ const docTemplate = `{
                     },
                     {
                         "type": "boolean",
-                        "description": "Whether to return public URL, default is false",
+                        "description": "Whether to return public URL, default is true",
                         "name": "with_public_url",
                         "in": "query"
                     },
@@ -668,7 +668,7 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "Whether to return asset public url, default is false",
+                        "description": "Whether to return asset public url, default is true",
                         "name": "with_asset_public_url",
                         "in": "query"
                     }
