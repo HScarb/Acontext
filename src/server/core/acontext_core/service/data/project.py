@@ -20,8 +20,9 @@ async def get_project_config(
         return Result.reject(f"Project not found: {project_id}")
     if not project.configs or "project_config" not in project.configs:
         return Result.resolve(DEFAULT_PROJECT_CONFIG)
-    return Result.resolve(
-        ProjectConfig(
-            **filter_value_from_json(project.configs["project_config"], ProjectConfig)
-        )
-    )
+
+    project_config = {
+        **DEFAULT_PROJECT_CONFIG.model_dump(),
+        **filter_value_from_json(project.configs["project_config"], ProjectConfig),
+    }
+    return Result.resolve(ProjectConfig(**project_config))

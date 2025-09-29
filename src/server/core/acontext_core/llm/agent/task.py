@@ -12,7 +12,12 @@ from ..complete import llm_complete, response_to_sendable_message
 from ..prompt.task import TaskPrompt, TASK_TOOLS
 from ...util.generate_ids import track_process
 from ..tool.task_lib.ctx import TaskCtx
+from ..tool.task_lib.insert import _insert_task_tool
 from ...schema.llm import LLMResponse
+
+NEED_UPDATE_CTX = {
+    _insert_task_tool.schema.function.name,
+}
 
 
 def pack_task_section(tasks: List[TaskSchema]) -> str:
@@ -28,6 +33,23 @@ def pack_current_message_with_ids(messages: list[MessageBlob]) -> str:
     return "\n".join(
         [f"<message id={i}> {m.to_string()} </message>" for i, m in enumerate(messages)]
     )
+
+
+async def build_task_ctx(
+    db_session: AsyncSession, session_id: asUUID, messages: list[MessageBlob]
+) -> TaskCtx:
+    LOG.info(f"Building task context for session {session_id}")
+    r = await TD.fetch_current_tasks(db_session, session_id)
+    current_tasks, eil = r.unpack()
+    if eil:
+        return r
+    use_ctx = TaskCtx(
+        db_session=db_session,
+        session_id=session_id,
+        task_ids_index=[t.id for t in current_tasks],
+        message_ids_index=[m.message_id for m in messages],
+    )
+    return use_ctx
 
 
 @track_process
@@ -81,33 +103,22 @@ async def task_agent_curd(
         use_tools = llm_return.tool_calls
         just_finish = False
         async with DB_CLIENT.get_session_context() as db_session:
-            r = await TD.fetch_current_tasks(db_session, session_id)
-            current_tasks, eil = r.unpack()
-            if eil:
-                return r
-            use_ctx = TaskCtx(
-                db_session=db_session,
-                session_id=session_id,
-                task_ids_index=[t.id for t in current_tasks],
-                message_ids_index=[m.message_id for m in messages],
-            )
+            USE_CTX = await build_task_ctx(db_session, session_id, messages)
             tool_response = []
             for tool_call in use_tools:
                 try:
                     tool_name = tool_call.function.name
                     if tool_name == "finish":
-                        LOG.info("finish function is called")
                         just_finish = True
                         continue
                     tool_arguments = tool_call.function.arguments
                     tool = TASK_TOOLS[tool_name]
-                    LOG.info(f"Tool Call: {tool_name} - {tool_arguments}")
                     with bound_logging_vars(tool=tool_name):
-                        r = await tool.handler(use_ctx, tool_arguments)
+                        r = await tool.handler(USE_CTX, tool_arguments)
                         t, eil = r.unpack()
                         if eil:
                             return r
-                    LOG.info(f"Tool Response: {tool_name} - {t}")
+                    LOG.info(f"Tool Call: {tool_name} - {tool_arguments} -> {t}")
                     tool_response.append(
                         {
                             "role": "tool",
@@ -115,12 +126,16 @@ async def task_agent_curd(
                             "content": t,
                         }
                     )
+                    if tool_name not in NEED_UPDATE_CTX:
+                        continue
+                    USE_CTX = await build_task_ctx(db_session, session_id, messages)
                 except KeyError as e:
                     return Result.reject(f"Tool {tool_name} not found: {str(e)}")
                 except Exception as e:
                     return Result.reject(f"Tool {tool_name} error: {str(e)}")
         _messages.extend(tool_response)
         if just_finish:
+            LOG.info("finish function is called")
             break
         already_iterations += 1
     return Result.resolve(None)
