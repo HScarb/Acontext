@@ -20,3 +20,13 @@ export const getFile = async (
     `/api/artifact/${artifact_id}/file?file_path=${file_path}`
   );
 };
+
+export const createArtifact = async (): Promise<Res<Artifact>> => {
+  return await service.post("/api/artifact");
+};
+
+export const deleteArtifact = async (
+  artifact_id: string
+): Promise<Res<null>> => {
+  return await service.delete(`/api/artifact/${artifact_id}`);
+};

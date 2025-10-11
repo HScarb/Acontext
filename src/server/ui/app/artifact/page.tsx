@@ -14,6 +14,16 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import {
   ChevronRight,
@@ -23,9 +33,18 @@ import {
   Loader2,
   ChevronDown,
   Download,
+  Plus,
+  Trash2,
+  RefreshCw,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { getArtifacts, getListFiles, getFile } from "@/api/models/artifact";
+import {
+  getArtifacts,
+  getListFiles,
+  getFile,
+  createArtifact,
+  deleteArtifact,
+} from "@/api/models/artifact";
 import { Artifact, ListFilesResp, File as FileInfo } from "@/types";
 
 interface TreeNode {
@@ -187,24 +206,38 @@ export default function ArtifactPage() {
   const [isLoadingImage, setIsLoadingImage] = useState(false);
   const [fileUrl, setFileUrl] = useState<string | null>(null);
 
+  // Delete confirmation dialog states
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [artifactToDelete, setArtifactToDelete] = useState<Artifact | null>(
+    null
+  );
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  // Create artifact states
+  const [isCreating, setIsCreating] = useState(false);
+
+  // Refresh states
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  // Load artifacts function (extracted for reuse)
+  const loadArtifacts = async () => {
+    try {
+      setIsLoadingArtifacts(true);
+      const res = await getArtifacts();
+      if (res.code !== 0) {
+        console.error(res.message);
+        return;
+      }
+      setArtifacts(res.data || []);
+    } catch (error) {
+      console.error("Failed to load artifacts:", error);
+    } finally {
+      setIsLoadingArtifacts(false);
+    }
+  };
+
   // Load artifact list when component mounts
   useEffect(() => {
-    const loadArtifacts = async () => {
-      try {
-        setIsLoadingArtifacts(true);
-        const res = await getArtifacts();
-        if (res.code !== 0) {
-          console.error(res.message);
-          return;
-        }
-        setArtifacts(res.data || []);
-      } catch (error) {
-        console.error("Failed to load artifacts:", error);
-      } finally {
-        setIsLoadingArtifacts(false);
-      }
-    };
-
     loadArtifacts();
   }, []);
 
@@ -308,6 +341,78 @@ export default function ArtifactPage() {
     }
   };
 
+  // Handle create artifact
+  const handleCreateArtifact = async () => {
+    try {
+      setIsCreating(true);
+      const res = await createArtifact();
+      if (res.code !== 0) {
+        console.error(res.message);
+        return;
+      }
+      // Reload artifacts list
+      await loadArtifacts();
+      // Auto-select the newly created artifact
+      if (res.data) {
+        setSelectedArtifact(res.data);
+        handleArtifactSelect(res.data);
+      }
+    } catch (error) {
+      console.error("Failed to create artifact:", error);
+    } finally {
+      setIsCreating(false);
+    }
+  };
+
+  // Handle delete artifact confirmation
+  const handleDeleteClick = (artifact: Artifact, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setArtifactToDelete(artifact);
+    setDeleteDialogOpen(true);
+  };
+
+  // Handle delete artifact
+  const handleDeleteArtifact = async () => {
+    if (!artifactToDelete) return;
+
+    try {
+      setIsDeleting(true);
+      const res = await deleteArtifact(artifactToDelete.id);
+      if (res.code !== 0) {
+        console.error(res.message);
+        return;
+      }
+
+      // If the deleted artifact is the currently selected one, clear selection
+      if (selectedArtifact?.id === artifactToDelete.id) {
+        setSelectedArtifact(null);
+        setTreeData([]);
+        setSelectedFile(null);
+      }
+
+      // Reload artifacts list
+      await loadArtifacts();
+    } catch (error) {
+      console.error("Failed to delete artifact:", error);
+    } finally {
+      setIsDeleting(false);
+      setDeleteDialogOpen(false);
+      setArtifactToDelete(null);
+    }
+  };
+
+  // Handle refresh artifacts
+  const handleRefreshArtifacts = async () => {
+    try {
+      setIsRefreshing(true);
+      await loadArtifacts();
+    } catch (error) {
+      console.error("Failed to refresh artifacts:", error);
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
   // Load file when a file is selected
   useEffect(() => {
     const loadFile = async () => {
@@ -359,51 +464,105 @@ export default function ArtifactPage() {
           <div className="mb-4 space-y-3">
             <h2 className="text-lg font-semibold">File Explorer</h2>
 
-            {/* Artifact selector */}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  variant="outline"
-                  className="w-full justify-between"
-                  disabled={isLoadingArtifacts}
-                >
-                  {isLoadingArtifacts ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      <span className="ml-2">Loading...</span>
-                    </>
-                  ) : selectedArtifact ? (
-                    <>
-                      <span
-                        className="mr-2 min-w-0 truncate"
-                        title={selectedArtifact.id}
-                      >
-                        {selectedArtifact.id}
-                      </span>
-                      <ChevronDown className="h-4 w-4 opacity-50 shrink-0" />
-                    </>
-                  ) : (
-                    <>
-                      <span className="text-muted-foreground">
-                        Select an artifact
-                      </span>
-                      <ChevronDown className="h-4 w-4 opacity-50 shrink-0" />
-                    </>
-                  )}
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent className="w-[var(--radix-dropdown-menu-trigger-width)]">
-                {artifacts.map((artifact) => (
-                  <DropdownMenuItem
-                    key={artifact.id}
-                    onClick={() => handleArtifactSelect(artifact)}
-                    title={artifact.id}
+            {/* Artifact selector with create button */}
+            <div className="flex gap-2">
+              <DropdownMenu modal={false}>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className="min-w-0 flex-1 justify-between"
+                    disabled={isLoadingArtifacts}
                   >
-                    <span className="truncate block w-full">{artifact.id}</span>
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
+                    {isLoadingArtifacts ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        <span className="ml-2">Loading...</span>
+                      </>
+                    ) : selectedArtifact ? (
+                      <>
+                        <span
+                          className="mr-2 min-w-0 truncate"
+                          title={selectedArtifact.id}
+                        >
+                          {selectedArtifact.id}
+                        </span>
+                        <ChevronDown className="h-4 w-4 opacity-50 shrink-0" />
+                      </>
+                    ) : (
+                      <>
+                        <span className="text-muted-foreground">
+                          Select an artifact
+                        </span>
+                        <ChevronDown className="h-4 w-4 opacity-50 shrink-0" />
+                      </>
+                    )}
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent
+                  className="w-[var(--radix-dropdown-menu-trigger-width)] min-w-[200px]"
+                  align="start"
+                >
+                  {artifacts.map((artifact) => {
+                    const isSelected = selectedArtifact?.id === artifact.id;
+                    return (
+                      <DropdownMenuItem
+                        key={artifact.id}
+                        title={artifact.id}
+                        className="flex items-center justify-between group"
+                        disabled={isSelected}
+                        onSelect={(e) => e.preventDefault()}
+                      >
+                        <span
+                          className={cn(
+                            "truncate flex-1 cursor-pointer",
+                            isSelected && "cursor-not-allowed opacity-50"
+                          )}
+                          onClick={() => !isSelected && handleArtifactSelect(artifact)}
+                        >
+                          {artifact.id}
+                        </span>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity ml-2 shrink-0"
+                          onClick={(e) => handleDeleteClick(artifact, e)}
+                        >
+                          <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                        </Button>
+                      </DropdownMenuItem>
+                    );
+                  })}
+                </DropdownMenuContent>
+              </DropdownMenu>
+
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={handleCreateArtifact}
+                disabled={isCreating || isLoadingArtifacts}
+                title="Create new artifact"
+              >
+                {isCreating ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Plus className="h-4 w-4" />
+                )}
+              </Button>
+
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={handleRefreshArtifacts}
+                disabled={isRefreshing || isLoadingArtifacts}
+                title="Refresh artifacts"
+              >
+                {isRefreshing ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <RefreshCw className="h-4 w-4" />
+                )}
+              </Button>
+            </div>
           </div>
 
           <div className="h-[calc(100vh-11rem)]">
@@ -580,6 +739,40 @@ export default function ArtifactPage() {
           </div>
         </div>
       </ResizablePanel>
+
+      {/* Delete confirmation dialog */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Artifact</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete artifact{" "}
+              <span className="font-mono font-semibold">
+                {artifactToDelete?.id}
+              </span>
+              ? This action cannot be undone and will delete all files
+              associated with this artifact.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteArtifact}
+              disabled={isDeleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isDeleting ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  Deleting...
+                </>
+              ) : (
+                "Delete"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </ResizablePanelGroup>
   );
 }
