@@ -24,7 +24,7 @@ type SessionService interface {
 	Delete(ctx context.Context, projectID uuid.UUID, sessionID uuid.UUID) error
 	UpdateByID(ctx context.Context, ss *model.Session) error
 	GetByID(ctx context.Context, ss *model.Session) (*model.Session, error)
-	List(ctx context.Context, projectID uuid.UUID) ([]model.Session, error)
+	List(ctx context.Context, projectID uuid.UUID, spaceID *uuid.UUID, notConnected bool) ([]model.Session, error)
 	SendMessage(ctx context.Context, in SendMessageInput) (*model.Message, error)
 	GetMessages(ctx context.Context, in GetMessagesInput) (*GetMessagesOutput, error)
 }
@@ -69,8 +69,8 @@ func (s *sessionService) GetByID(ctx context.Context, ss *model.Session) (*model
 	return s.r.Get(ctx, ss)
 }
 
-func (s *sessionService) List(ctx context.Context, projectID uuid.UUID) ([]model.Session, error) {
-	return s.r.List(ctx, projectID)
+func (s *sessionService) List(ctx context.Context, projectID uuid.UUID, spaceID *uuid.UUID, notConnected bool) ([]model.Session, error) {
+	return s.r.List(ctx, projectID, spaceID, notConnected)
 }
 
 type SendMessageInput struct {
@@ -208,7 +208,7 @@ func (s *sessionService) SendMessage(ctx context.Context, in SendMessageInput) (
 			SessionID: in.SessionID,
 			MessageID: msg.ID,
 		}); err != nil {
-			return nil, fmt.Errorf("publish session message: %w", err)
+			s.log.Error("publish session message", zap.Error(err))
 		}
 	}
 

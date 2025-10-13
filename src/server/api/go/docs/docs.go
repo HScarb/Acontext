@@ -444,7 +444,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Get all sessions under a project",
+                "description": "Get all sessions under a project, optionally filtered by space_id",
                 "consumes": [
                     "application/json"
                 ],
@@ -455,6 +455,22 @@ const docTemplate = `{
                     "session"
                 ],
                 "summary": "Get sessions",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "format": "uuid",
+                        "description": "Space ID to filter sessions",
+                        "name": "space_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "example": "true",
+                        "description": "Filter sessions not connected to any space (true/false)",
+                        "name": "not_connected",
+                        "in": "query"
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",

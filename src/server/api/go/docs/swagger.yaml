@@ -707,7 +707,18 @@ paths:
     get:
       consumes:
       - application/json
-      description: Get all sessions under a project
+      description: Get all sessions under a project, optionally filtered by space_id
+      parameters:
+      - description: Space ID to filter sessions
+        format: uuid
+        in: query
+        name: space_id
+        type: string
+      - description: Filter sessions not connected to any space (true/false)
+        example: "true"
+        in: query
+        name: not_connected
+        type: string
       produces:
       - application/json
       responses:

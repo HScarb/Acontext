@@ -34,10 +34,12 @@ type CreateSessionReq struct {
 // GetSessions godoc
 //
 //	@Summary		Get sessions
-//	@Description	Get all sessions under a project
+//	@Description	Get all sessions under a project, optionally filtered by space_id
 //	@Tags			session
 //	@Accept			json
 //	@Produce		json
+//	@Param			space_id		query	string	false	"Space ID to filter sessions"								format(uuid)
+//	@Param			not_connected	query	string	false	"Filter sessions not connected to any space (true/false)"	example(true)
 //	@Security		BearerAuth
 //	@Success		200	{object}	serializer.Response{data=[]model.Session}
 //	@Router			/session [get]
@@ -48,7 +50,26 @@ func (h *SessionHandler) GetSessions(c *gin.Context) {
 		return
 	}
 
-	sessions, err := h.svc.List(c.Request.Context(), project.ID)
+	// Parse space_id query parameter
+	var spaceID *uuid.UUID
+	spaceIDStr := c.Query("space_id")
+	if spaceIDStr != "" {
+		parsed, err := uuid.Parse(spaceIDStr)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, serializer.ParamErr("invalid space_id", err))
+			return
+		}
+		spaceID = &parsed
+	}
+
+	// Parse not_connected query parameter
+	notConnected := false
+	notConnectedStr := c.Query("not_connected")
+	if notConnectedStr == "true" {
+		notConnected = true
+	}
+
+	sessions, err := h.svc.List(c.Request.Context(), project.ID, spaceID, notConnected)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, serializer.DBErr("", err))
 		return

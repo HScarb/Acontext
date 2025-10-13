@@ -14,7 +14,7 @@ type SessionRepo interface {
 	Delete(ctx context.Context, s *model.Session) error
 	Update(ctx context.Context, s *model.Session) error
 	Get(ctx context.Context, s *model.Session) (*model.Session, error)
-	List(ctx context.Context, projectID uuid.UUID) ([]model.Session, error)
+	List(ctx context.Context, projectID uuid.UUID, spaceID *uuid.UUID, notConnected bool) ([]model.Session, error)
 	CreateMessageWithAssets(ctx context.Context, msg *model.Message) error
 	ListBySessionWithCursor(ctx context.Context, sessionID uuid.UUID, afterCreatedAt time.Time, afterID uuid.UUID, limit int) ([]model.Message, error)
 }
@@ -41,9 +41,17 @@ func (r *sessionRepo) Get(ctx context.Context, s *model.Session) (*model.Session
 	return s, r.db.WithContext(ctx).Where(&model.Session{ID: s.ID}).First(s).Error
 }
 
-func (r *sessionRepo) List(ctx context.Context, projectID uuid.UUID) ([]model.Session, error) {
+func (r *sessionRepo) List(ctx context.Context, projectID uuid.UUID, spaceID *uuid.UUID, notConnected bool) ([]model.Session, error) {
 	var sessions []model.Session
-	err := r.db.WithContext(ctx).Where(&model.Session{ProjectID: projectID}).Order("created_at DESC").Find(&sessions).Error
+	query := r.db.WithContext(ctx).Where(&model.Session{ProjectID: projectID})
+
+	if notConnected {
+		query = query.Where("space_id IS NULL")
+	} else if spaceID != nil {
+		query = query.Where("space_id = ?", spaceID)
+	}
+
+	err := query.Order("created_at DESC").Find(&sessions).Error
 	return sessions, err
 }
 
