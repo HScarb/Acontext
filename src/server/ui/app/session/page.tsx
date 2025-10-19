@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
+import { useTheme } from "next-themes";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -49,10 +50,15 @@ import {
   connectSessionToSpace,
 } from "@/api/models/space";
 import { Session, Space } from "@/types";
+import ReactCodeMirror from "@uiw/react-codemirror";
+import { okaidia } from "@uiw/codemirror-theme-okaidia";
+import { json } from "@codemirror/lang-json";
+import { EditorView } from "@codemirror/view";
 
 export default function SessionsPage() {
   const t = useTranslations("space");
   const router = useRouter();
+  const { resolvedTheme } = useTheme();
 
   const [sessions, setSessions] = useState<Session[]>([]);
   const [spaces, setSpaces] = useState<Space[]>([]);
@@ -69,10 +75,14 @@ export default function SessionsPage() {
 
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [createConfigValue, setCreateConfigValue] = useState("{}");
+  const [createConfigError, setCreateConfigError] = useState<string>("");
+  const [isCreateConfigValid, setIsCreateConfigValid] = useState(true);
   const [createSpaceId, setCreateSpaceId] = useState<string>("none");
 
   const [configDialogOpen, setConfigDialogOpen] = useState(false);
   const [configEditValue, setConfigEditValue] = useState("");
+  const [configEditError, setConfigEditError] = useState<string>("");
+  const [isConfigEditValid, setIsConfigEditValid] = useState(true);
   const [isSavingConfig, setIsSavingConfig] = useState(false);
   const [configEditTarget, setConfigEditTarget] = useState<Session | null>(
     null
@@ -134,27 +144,88 @@ export default function SessionsPage() {
     loadSpaces();
   }, [sessionSpaceFilter]);
 
+  const validateJSON = (value: string): boolean => {
+    const trimmed = value.trim();
+    if (!trimmed) return false;
+    try {
+      JSON.parse(trimmed);
+      return true;
+    } catch {
+      return false;
+    }
+  };
+
+  const handleCreateConfigChange = (value: string) => {
+    setCreateConfigValue(value);
+    const isValid = validateJSON(value);
+    setIsCreateConfigValid(isValid);
+    if (!isValid && value.trim()) {
+      try {
+        JSON.parse(value.trim());
+      } catch (error) {
+        if (error instanceof SyntaxError) {
+          setCreateConfigError(t("invalidJson") + ": " + error.message);
+        }
+      }
+    } else {
+      setCreateConfigError("");
+    }
+  };
+
+  const handleConfigEditChange = (value: string) => {
+    setConfigEditValue(value);
+    const isValid = validateJSON(value);
+    setIsConfigEditValid(isValid);
+    if (!isValid && value.trim()) {
+      try {
+        JSON.parse(value.trim());
+      } catch (error) {
+        if (error instanceof SyntaxError) {
+          setConfigEditError(t("invalidJson") + ": " + error.message);
+        }
+      }
+    } else {
+      setConfigEditError("");
+    }
+  };
+
   const handleOpenCreateDialog = () => {
     setCreateConfigValue("{}");
+    setCreateConfigError("");
+    setIsCreateConfigValid(true);
     setCreateSpaceId("none");
     setCreateDialogOpen(true);
   };
 
   const handleCreateSession = async () => {
+    // Validate input
+    const trimmedValue = createConfigValue.trim();
+    if (!trimmedValue) {
+      setCreateConfigError(t("invalidJson") + ": Empty configuration");
+      return;
+    }
+
     try {
-      const configs = JSON.parse(createConfigValue);
+      const configs = JSON.parse(trimmedValue);
+      setCreateConfigError("");
       setIsCreatingSession(true);
       const spaceId = createSpaceId === "none" ? undefined : createSpaceId;
       const res = await createSession(spaceId, configs);
       if (res.code !== 0) {
         console.error(res.message);
+        setCreateConfigError(res.message);
+        setIsCreatingSession(false);
         return;
       }
       await loadSessions();
       setCreateDialogOpen(false);
     } catch (error) {
       console.error("Failed to create session:", error);
-      alert(t("invalidJson"));
+      if (error instanceof SyntaxError) {
+        setCreateConfigError(t("invalidJson") + ": " + error.message);
+      } else {
+        setCreateConfigError(String(error));
+      }
     } finally {
       setIsCreatingSession(false);
     }
@@ -191,6 +262,8 @@ export default function SessionsPage() {
   const handleViewConfig = async (session: Session) => {
     try {
       setConfigEditTarget(session);
+      setConfigEditError("");
+      setIsConfigEditValid(true);
       let configs = session.configs;
 
       const res = await getSessionConfigs(session.id);
@@ -208,20 +281,34 @@ export default function SessionsPage() {
   const handleSaveConfig = async () => {
     if (!configEditTarget) return;
 
+    // Validate input
+    const trimmedValue = configEditValue.trim();
+    if (!trimmedValue) {
+      setConfigEditError(t("invalidJson") + ": Empty configuration");
+      return;
+    }
+
     try {
-      const configs = JSON.parse(configEditValue);
+      const configs = JSON.parse(trimmedValue);
+      setConfigEditError("");
       setIsSavingConfig(true);
 
       const res = await updateSessionConfigs(configEditTarget.id, configs);
       if (res.code !== 0) {
         console.error(res.message);
+        setConfigEditError(res.message);
+        setIsSavingConfig(false);
         return;
       }
       await loadSessions();
       setConfigDialogOpen(false);
     } catch (error) {
       console.error("Failed to save config:", error);
-      alert(t("invalidJson"));
+      if (error instanceof SyntaxError) {
+        setConfigEditError(t("invalidJson") + ": " + error.message);
+      } else {
+        setConfigEditError(String(error));
+      }
     } finally {
       setIsSavingConfig(false);
     }
@@ -448,17 +535,23 @@ export default function SessionsPage() {
 
       {/* Config Dialog */}
       <AlertDialog open={configDialogOpen} onOpenChange={setConfigDialogOpen}>
-        <AlertDialogContent className="max-w-2xl">
+        <AlertDialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <AlertDialogHeader>
             <AlertDialogTitle>{t("editConfigsTitle")}</AlertDialogTitle>
           </AlertDialogHeader>
           <div className="py-4">
-            <textarea
-              className="w-full h-64 p-2 font-mono text-sm border rounded-md"
+            <ReactCodeMirror
               value={configEditValue}
-              onChange={(e) => setConfigEditValue(e.target.value)}
+              height="400px"
+              theme={resolvedTheme === "dark" ? okaidia : "light"}
+              extensions={[json(), EditorView.lineWrapping]}
+              onChange={handleConfigEditChange}
               placeholder={t("configsPlaceholder")}
+              className="border rounded-md overflow-hidden"
             />
+            {configEditError && (
+              <p className="mt-2 text-sm text-destructive">{configEditError}</p>
+            )}
           </div>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={isSavingConfig}>
@@ -466,7 +559,7 @@ export default function SessionsPage() {
             </AlertDialogCancel>
             <AlertDialogAction
               onClick={handleSaveConfig}
-              disabled={isSavingConfig}
+              disabled={isSavingConfig || !isConfigEditValid}
             >
               {isSavingConfig ? (
                 <>
@@ -532,7 +625,7 @@ export default function SessionsPage() {
 
       {/* Create Session Dialog */}
       <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{t("createSessionTitle")}</DialogTitle>
             <DialogDescription>{t("createSessionDescription")}</DialogDescription>
@@ -563,12 +656,18 @@ export default function SessionsPage() {
               <label className="text-sm font-medium">
                 {t("configs")}
               </label>
-              <textarea
-                className="w-full h-64 p-2 font-mono text-sm border rounded-md"
+              <ReactCodeMirror
                 value={createConfigValue}
-                onChange={(e) => setCreateConfigValue(e.target.value)}
+                height="400px"
+                theme={resolvedTheme === "dark" ? okaidia : "light"}
+                extensions={[json(), EditorView.lineWrapping]}
+                onChange={handleCreateConfigChange}
                 placeholder={t("configsPlaceholder")}
+                className="border rounded-md overflow-hidden"
               />
+              {createConfigError && (
+                <p className="text-sm text-destructive">{createConfigError}</p>
+              )}
             </div>
           </div>
           <DialogFooter>
@@ -581,7 +680,7 @@ export default function SessionsPage() {
             </Button>
             <Button
               onClick={handleCreateSession}
-              disabled={isCreatingSession}
+              disabled={isCreatingSession || !isCreateConfigValid}
             >
               {isCreatingSession ? (
                 <>

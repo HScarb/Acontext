@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from "react";
 import Image from "next/image";
 import { Tree, NodeRendererProps, TreeApi, NodeApi } from "react-arborist";
 import { useTranslations } from "next-intl";
+import { useTheme } from "next-themes";
 import {
   ResizableHandle,
   ResizablePanel,
@@ -32,7 +33,6 @@ import {
   Trash2,
   RefreshCw,
   Upload,
-  X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -45,6 +45,10 @@ import {
   deleteFile,
 } from "@/api/models/artifact";
 import { Artifact, ListFilesResp, File as FileInfo } from "@/types";
+import ReactCodeMirror from "@uiw/react-codemirror";
+import { okaidia } from "@uiw/codemirror-theme-okaidia";
+import { json } from "@codemirror/lang-json";
+import { EditorView } from "@codemirror/view";
 
 interface TreeNode {
   id: string;
@@ -219,6 +223,7 @@ function Node({
 
 export default function ArtifactPage() {
   const t = useTranslations("artifact");
+  const { resolvedTheme } = useTheme();
 
   const treeRef = useRef<TreeApi<TreeNode>>(null);
   const [selectedFile, setSelectedFile] = useState<TreeNode | null>(null);
@@ -258,9 +263,9 @@ export default function ArtifactPage() {
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
   const [uploadPath, setUploadPath] = useState<string>("/");
   const [initialUploadPath, setInitialUploadPath] = useState<string>("/"); // Track the initial path clicked
-  const [uploadMetaFields, setUploadMetaFields] = useState<
-    { key: string; value: string }[]
-  >([]);
+  const [uploadMetaValue, setUploadMetaValue] = useState<string>("{}");
+  const [uploadMetaError, setUploadMetaError] = useState<string>("");
+  const [isUploadMetaValid, setIsUploadMetaValid] = useState(true);
   const [selectedUploadFile, setSelectedUploadFile] = useState<File | null>(
     null
   );
@@ -499,11 +504,41 @@ export default function ArtifactPage() {
     }
   };
 
+  const validateJSON = (value: string): boolean => {
+    const trimmed = value.trim();
+    if (!trimmed) return false;
+    try {
+      JSON.parse(trimmed);
+      return true;
+    } catch {
+      return false;
+    }
+  };
+
+  const handleUploadMetaChange = (value: string) => {
+    setUploadMetaValue(value);
+    const isValid = validateJSON(value);
+    setIsUploadMetaValid(isValid);
+    if (!isValid && value.trim()) {
+      try {
+        JSON.parse(value.trim());
+      } catch (error) {
+        if (error instanceof SyntaxError) {
+          setUploadMetaError(t("invalidJson") + ": " + error.message);
+        }
+      }
+    } else {
+      setUploadMetaError("");
+    }
+  };
+
   // Handle upload file button click
   const handleUploadClick = (path: string = "/") => {
     setUploadPath(path);
     setInitialUploadPath(path);
-    setUploadMetaFields([]);
+    setUploadMetaValue("{}");
+    setUploadMetaError("");
+    setIsUploadMetaValid(true);
     setSelectedUploadFile(null);
     fileInputRef.current?.click();
   };
@@ -518,48 +553,37 @@ export default function ArtifactPage() {
     setUploadDialogOpen(true);
   };
 
-  // Handle add meta field
-  const handleAddMetaField = () => {
-    setUploadMetaFields([...uploadMetaFields, { key: "", value: "" }]);
-  };
-
-  // Handle remove meta field
-  const handleRemoveMetaField = (index: number) => {
-    setUploadMetaFields(uploadMetaFields.filter((_, i) => i !== index));
-  };
-
-  // Handle meta field change
-  const handleMetaFieldChange = (
-    index: number,
-    field: "key" | "value",
-    value: string
-  ) => {
-    const newFields = [...uploadMetaFields];
-    newFields[index][field] = value;
-    setUploadMetaFields(newFields);
-  };
-
   // Handle actual file upload
   const handleUploadConfirm = async () => {
     if (!selectedUploadFile || !selectedArtifact) return;
+
+    // Parse and validate JSON
+    let meta: Record<string, string> | undefined;
+    const trimmedMetaValue = uploadMetaValue.trim();
+
+    if (trimmedMetaValue && trimmedMetaValue !== "{}") {
+      try {
+        meta = JSON.parse(trimmedMetaValue);
+        setUploadMetaError("");
+      } catch (error) {
+        if (error instanceof SyntaxError) {
+          setUploadMetaError(t("invalidJson") + ": " + error.message);
+        } else {
+          setUploadMetaError(String(error));
+        }
+        return;
+      }
+    }
 
     try {
       setIsUploading(true);
       setUploadDialogOpen(false);
 
-      // Build meta object from fields
-      const meta: Record<string, string> = {};
-      uploadMetaFields.forEach((field) => {
-        if (field.key.trim()) {
-          meta[field.key.trim()] = field.value;
-        }
-      });
-
       const res = await uploadFile(
         selectedArtifact.id,
         uploadPath,
         selectedUploadFile,
-        Object.keys(meta).length > 0 ? meta : undefined
+        meta
       );
 
       if (res.code !== 0) {
@@ -578,7 +602,8 @@ export default function ArtifactPage() {
     } finally {
       setIsUploading(false);
       setSelectedUploadFile(null);
-      setUploadMetaFields([]);
+      setUploadMetaValue("{}");
+      setUploadMetaError("");
       // Reset file input
       if (fileInputRef.current) {
         fileInputRef.current.value = "";
@@ -590,7 +615,8 @@ export default function ArtifactPage() {
   const handleUploadCancel = () => {
     setUploadDialogOpen(false);
     setSelectedUploadFile(null);
-    setUploadMetaFields([]);
+    setUploadMetaValue("{}");
+    setUploadMetaError("");
     // Reset file input
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
@@ -1019,9 +1045,15 @@ export default function ArtifactPage() {
                         <p className="text-sm font-medium text-muted-foreground mb-3">
                           {t("additionalMetadata")}
                         </p>
-                        <pre className="text-sm font-mono bg-muted px-3 py-2 rounded overflow-x-auto">
-                          {JSON.stringify(additionalMeta, null, 2)}
-                        </pre>
+                        <ReactCodeMirror
+                          value={JSON.stringify(additionalMeta, null, 2)}
+                          height="200px"
+                          theme={resolvedTheme === "dark" ? okaidia : "light"}
+                          extensions={[json(), EditorView.lineWrapping]}
+                          editable={false}
+                          readOnly
+                          className="border rounded-md overflow-hidden"
+                        />
                       </div>
                     );
                   }
@@ -1240,60 +1272,24 @@ export default function ArtifactPage() {
 
             {/* Meta fields */}
             <div>
-              <div className="flex items-center justify-between mb-2">
-                <label className="text-sm font-medium">
-                  {t("metaInformation")}
-                </label>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={handleAddMetaField}
-                >
-                  <Plus className="h-3 w-3 mr-1" />
-                  {t("addField")}
-                </Button>
-              </div>
-
-              {uploadMetaFields.length === 0 ? (
-                <div className="text-sm text-muted-foreground bg-muted px-3 py-2 rounded-md">
-                  {t("noMetaFields")}
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  {uploadMetaFields.map((field, index) => (
-                    <div key={index} className="flex gap-2 items-start">
-                      <Input
-                        type="text"
-                        value={field.key}
-                        onChange={(e) =>
-                          handleMetaFieldChange(index, "key", e.target.value)
-                        }
-                        placeholder={t("key")}
-                        className="flex-1 font-mono"
-                      />
-                      <Input
-                        type="text"
-                        value={field.value}
-                        onChange={(e) =>
-                          handleMetaFieldChange(index, "value", e.target.value)
-                        }
-                        placeholder={t("value")}
-                        className="flex-1 font-mono"
-                      />
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleRemoveMetaField(index)}
-                        className="shrink-0"
-                      >
-                        <X className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  ))}
-                </div>
+              <label className="text-sm font-medium mb-2 block">
+                {t("metaInformation")}
+              </label>
+              <ReactCodeMirror
+                value={uploadMetaValue}
+                height="200px"
+                theme={resolvedTheme === "dark" ? okaidia : "light"}
+                extensions={[json(), EditorView.lineWrapping]}
+                onChange={handleUploadMetaChange}
+                placeholder='{"key": "value"}'
+                className="border rounded-md overflow-hidden"
+              />
+              {uploadMetaError && (
+                <p className="mt-2 text-sm text-destructive">{uploadMetaError}</p>
               )}
+              <p className="text-xs text-muted-foreground mt-1">
+                {t("metaJsonHelp")}
+              </p>
             </div>
           </div>
 
@@ -1306,7 +1302,7 @@ export default function ArtifactPage() {
             </AlertDialogCancel>
             <AlertDialogAction
               onClick={handleUploadConfirm}
-              disabled={isUploading || !selectedUploadFile}
+              disabled={isUploading || !selectedUploadFile || !isUploadMetaValid}
             >
               {isUploading ? (
                 <>

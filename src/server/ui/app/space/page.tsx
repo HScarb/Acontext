@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
+import { useTheme } from "next-themes";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -40,10 +41,15 @@ import {
   updateSpaceConfigs,
 } from "@/api/models/space";
 import { Space } from "@/types";
+import ReactCodeMirror from "@uiw/react-codemirror";
+import { okaidia } from "@uiw/codemirror-theme-okaidia";
+import { json } from "@codemirror/lang-json";
+import { EditorView } from "@codemirror/view";
 
 export default function SpacesPage() {
   const t = useTranslations("space");
   const router = useRouter();
+  const { resolvedTheme } = useTheme();
 
   const [spaces, setSpaces] = useState<Space[]>([]);
   const [selectedSpace, setSelectedSpace] = useState<Space | null>(null);
@@ -58,9 +64,13 @@ export default function SpacesPage() {
 
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [createConfigValue, setCreateConfigValue] = useState("{}");
+  const [createConfigError, setCreateConfigError] = useState<string>("");
+  const [isCreateConfigValid, setIsCreateConfigValid] = useState(true);
 
   const [configDialogOpen, setConfigDialogOpen] = useState(false);
   const [configEditValue, setConfigEditValue] = useState("");
+  const [configEditError, setConfigEditError] = useState<string>("");
+  const [isConfigEditValid, setIsConfigEditValid] = useState(true);
   const [isSavingConfig, setIsSavingConfig] = useState(false);
   const [configEditTarget, setConfigEditTarget] = useState<Space | null>(null);
 
@@ -88,25 +98,86 @@ export default function SpacesPage() {
     loadSpaces();
   }, []);
 
+  const validateJSON = (value: string): boolean => {
+    const trimmed = value.trim();
+    if (!trimmed) return false;
+    try {
+      JSON.parse(trimmed);
+      return true;
+    } catch {
+      return false;
+    }
+  };
+
+  const handleCreateConfigChange = (value: string) => {
+    setCreateConfigValue(value);
+    const isValid = validateJSON(value);
+    setIsCreateConfigValid(isValid);
+    if (!isValid && value.trim()) {
+      try {
+        JSON.parse(value.trim());
+      } catch (error) {
+        if (error instanceof SyntaxError) {
+          setCreateConfigError(t("invalidJson") + ": " + error.message);
+        }
+      }
+    } else {
+      setCreateConfigError("");
+    }
+  };
+
+  const handleConfigEditChange = (value: string) => {
+    setConfigEditValue(value);
+    const isValid = validateJSON(value);
+    setIsConfigEditValid(isValid);
+    if (!isValid && value.trim()) {
+      try {
+        JSON.parse(value.trim());
+      } catch (error) {
+        if (error instanceof SyntaxError) {
+          setConfigEditError(t("invalidJson") + ": " + error.message);
+        }
+      }
+    } else {
+      setConfigEditError("");
+    }
+  };
+
   const handleOpenCreateDialog = () => {
     setCreateConfigValue("{}");
+    setCreateConfigError("");
+    setIsCreateConfigValid(true);
     setCreateDialogOpen(true);
   };
 
   const handleCreateSpace = async () => {
+    // Validate input
+    const trimmedValue = createConfigValue.trim();
+    if (!trimmedValue) {
+      setCreateConfigError(t("invalidJson") + ": Empty configuration");
+      return;
+    }
+
     try {
-      const configs = JSON.parse(createConfigValue);
+      const configs = JSON.parse(trimmedValue);
+      setCreateConfigError("");
       setIsCreatingSpace(true);
       const res = await createSpace(configs);
       if (res.code !== 0) {
         console.error(res.message);
+        setCreateConfigError(res.message);
+        setIsCreatingSpace(false);
         return;
       }
       await loadSpaces();
       setCreateDialogOpen(false);
     } catch (error) {
       console.error("Failed to create space:", error);
-      alert(t("invalidJson"));
+      if (error instanceof SyntaxError) {
+        setCreateConfigError(t("invalidJson") + ": " + error.message);
+      } else {
+        setCreateConfigError(String(error));
+      }
     } finally {
       setIsCreatingSpace(false);
     }
@@ -143,6 +214,8 @@ export default function SpacesPage() {
   const handleViewConfig = async (space: Space) => {
     try {
       setConfigEditTarget(space);
+      setConfigEditError("");
+      setIsConfigEditValid(true);
       let configs = space.configs;
 
       const res = await getSpaceConfigs(space.id);
@@ -160,20 +233,34 @@ export default function SpacesPage() {
   const handleSaveConfig = async () => {
     if (!configEditTarget) return;
 
+    // Validate input
+    const trimmedValue = configEditValue.trim();
+    if (!trimmedValue) {
+      setConfigEditError(t("invalidJson") + ": Empty configuration");
+      return;
+    }
+
     try {
-      const configs = JSON.parse(configEditValue);
+      const configs = JSON.parse(trimmedValue);
+      setConfigEditError("");
       setIsSavingConfig(true);
 
       const res = await updateSpaceConfigs(configEditTarget.id, configs);
       if (res.code !== 0) {
         console.error(res.message);
+        setConfigEditError(res.message);
+        setIsSavingConfig(false);
         return;
       }
       await loadSpaces();
       setConfigDialogOpen(false);
     } catch (error) {
       console.error("Failed to save config:", error);
-      alert(t("invalidJson"));
+      if (error instanceof SyntaxError) {
+        setConfigEditError(t("invalidJson") + ": " + error.message);
+      } else {
+        setConfigEditError(String(error));
+      }
     } finally {
       setIsSavingConfig(false);
     }
@@ -338,17 +425,23 @@ export default function SpacesPage() {
 
       {/* Config Dialog */}
       <AlertDialog open={configDialogOpen} onOpenChange={setConfigDialogOpen}>
-        <AlertDialogContent className="max-w-2xl">
+        <AlertDialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <AlertDialogHeader>
             <AlertDialogTitle>{t("editConfigsTitle")}</AlertDialogTitle>
           </AlertDialogHeader>
           <div className="py-4">
-            <textarea
-              className="w-full h-64 p-2 font-mono text-sm border rounded-md"
+            <ReactCodeMirror
               value={configEditValue}
-              onChange={(e) => setConfigEditValue(e.target.value)}
+              height="400px"
+              theme={resolvedTheme === "dark" ? okaidia : "light"}
+              extensions={[json(), EditorView.lineWrapping]}
+              onChange={handleConfigEditChange}
               placeholder={t("configsPlaceholder")}
+              className="border rounded-md overflow-hidden"
             />
+            {configEditError && (
+              <p className="mt-2 text-sm text-destructive">{configEditError}</p>
+            )}
           </div>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={isSavingConfig}>
@@ -356,7 +449,7 @@ export default function SpacesPage() {
             </AlertDialogCancel>
             <AlertDialogAction
               onClick={handleSaveConfig}
-              disabled={isSavingConfig}
+              disabled={isSavingConfig || !isConfigEditValid}
             >
               {isSavingConfig ? (
                 <>
@@ -373,18 +466,24 @@ export default function SpacesPage() {
 
       {/* Create Space Dialog */}
       <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{t("createSpaceTitle")}</DialogTitle>
             <DialogDescription>{t("createSpaceDescription")}</DialogDescription>
           </DialogHeader>
           <div className="py-4">
-            <textarea
-              className="w-full h-64 p-2 font-mono text-sm border rounded-md"
+            <ReactCodeMirror
               value={createConfigValue}
-              onChange={(e) => setCreateConfigValue(e.target.value)}
+              height="400px"
+              theme={resolvedTheme === "dark" ? okaidia : "light"}
+              extensions={[json(), EditorView.lineWrapping]}
+              onChange={handleCreateConfigChange}
               placeholder={t("configsPlaceholder")}
+              className="border rounded-md overflow-hidden"
             />
+            {createConfigError && (
+              <p className="mt-2 text-sm text-destructive">{createConfigError}</p>
+            )}
           </div>
           <DialogFooter>
             <Button
@@ -396,7 +495,7 @@ export default function SpacesPage() {
             </Button>
             <Button
               onClick={handleCreateSpace}
-              disabled={isCreatingSpace}
+              disabled={isCreatingSpace || !isCreateConfigValid}
             >
               {isCreatingSpace ? (
                 <>
