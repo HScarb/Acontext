@@ -1,13 +1,13 @@
 import { createApiResponse, createApiError } from "@/lib/api-response";
-import { GetFileResp } from "@/types";
+import { GetArtifactResp } from "@/types";
 
 export async function GET(
   req: Request,
-  { params }: { params: Promise<{ artifact_id: string }> }
+  { params }: { params: Promise<{ disk_id: string }> }
 ) {
-  const artifact_id = (await params).artifact_id;
-  if (!artifact_id) {
-    return createApiError("artifact_id is required");
+  const disk_id = (await params).disk_id;
+  if (!disk_id) {
+    return createApiError("disk_id is required");
   }
 
   const { searchParams } = new URL(req.url);
@@ -16,10 +16,10 @@ export async function GET(
     return createApiError("file_path is required");
   }
 
-  const getFile = new Promise<GetFileResp>(async (resolve, reject) => {
+  const getArtifact = new Promise<GetArtifactResp>(async (resolve, reject) => {
     try {
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_SERVER_URL}/api/v1/artifact/${artifact_id}/file?file_path=${file_path}`,
+        `${process.env.NEXT_PUBLIC_API_SERVER_URL}/api/v1/disk/${disk_id}/artifact?file_path=${file_path}`,
         {
           method: "GET",
           headers: {
@@ -43,7 +43,7 @@ export async function GET(
   });
 
   try {
-    const res = await getFile;
+    const res = await getArtifact;
     return createApiResponse(res || {});
   } catch (error) {
     console.error(error);
@@ -53,11 +53,11 @@ export async function GET(
 
 export async function POST(
   req: Request,
-  { params }: { params: Promise<{ artifact_id: string }> }
+  { params }: { params: Promise<{ disk_id: string }> }
 ) {
-  const artifact_id = (await params).artifact_id;
-  if (!artifact_id) {
-    return createApiError("artifact_id is required");
+  const disk_id = (await params).disk_id;
+  if (!disk_id) {
+    return createApiError("disk_id is required");
   }
 
   try {
@@ -85,7 +85,7 @@ export async function POST(
     }
 
     const response = await fetch(
-      `${process.env.NEXT_PUBLIC_API_SERVER_URL}/api/v1/artifact/${artifact_id}/file`,
+      `${process.env.NEXT_PUBLIC_API_SERVER_URL}/api/v1/disk/${disk_id}/artifact`,
       {
         method: "POST",
         headers: {
@@ -97,7 +97,7 @@ export async function POST(
 
     if (response.status !== 201) {
       const result = await response.json();
-      return createApiError(result.message || "Failed to upload file");
+      return createApiError(result.message || "Failed to upload artifact");
     }
 
     const result = await response.json();
@@ -114,11 +114,11 @@ export async function POST(
 
 export async function DELETE(
   req: Request,
-  { params }: { params: Promise<{ artifact_id: string }> }
+  { params }: { params: Promise<{ disk_id: string }> }
 ) {
-  const artifact_id = (await params).artifact_id;
-  if (!artifact_id) {
-    return createApiError("artifact_id is required");
+  const disk_id = (await params).disk_id;
+  if (!disk_id) {
+    return createApiError("disk_id is required");
   }
 
   const { searchParams } = new URL(req.url);
@@ -130,7 +130,7 @@ export async function DELETE(
 
   try {
     const response = await fetch(
-      `${process.env.NEXT_PUBLIC_API_SERVER_URL}/api/v1/artifact/${artifact_id}/file?file_path=${encodeURIComponent(file_path)}`,
+      `${process.env.NEXT_PUBLIC_API_SERVER_URL}/api/v1/disk/${disk_id}/artifact?file_path=${encodeURIComponent(file_path)}`,
       {
         method: "DELETE",
         headers: {
@@ -141,7 +141,7 @@ export async function DELETE(
 
     if (response.status !== 200) {
       const result = await response.json();
-      return createApiError(result.message || "Failed to delete file");
+      return createApiError(result.message || "Failed to delete artifact");
     }
 
     const result = await response.json();
@@ -155,3 +155,4 @@ export async function DELETE(
     return createApiError("Internal Server Error");
   }
 }
+

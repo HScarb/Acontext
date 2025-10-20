@@ -1,20 +1,24 @@
 import { createApiResponse, createApiError } from "@/lib/api-response";
+import { ListArtifactsResp } from "@/types";
 
-export async function DELETE(
+export async function GET(
   req: Request,
-  { params }: { params: Promise<{ artifact_id: string }> }
+  { params }: { params: Promise<{ disk_id: string }> }
 ) {
-  const artifact_id = (await params).artifact_id;
-  if (!artifact_id) {
-    return createApiError("artifact_id is required");
+  const disk_id = (await params).disk_id;
+  if (!disk_id) {
+    return createApiError("disk_id is required");
   }
 
-  const deleteArtifact = new Promise<null>(async (resolve, reject) => {
+  const { searchParams } = new URL(req.url);
+  const path = searchParams.get("path") || "/";
+
+  const getListArtifacts = new Promise<ListArtifactsResp>(async (resolve, reject) => {
     try {
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_SERVER_URL}/api/v1/artifact/${artifact_id}`,
+        `${process.env.NEXT_PUBLIC_API_SERVER_URL}/api/v1/disk/${disk_id}/artifact/ls?path=${path}`,
         {
-          method: "DELETE",
+          method: "GET",
           headers: {
             "Content-Type": "application/json",
             Authorization: `Bearer sk-ac-${process.env.ROOT_API_BEARER_TOKEN}`,
@@ -29,15 +33,15 @@ export async function DELETE(
       if (result.code !== 0) {
         reject(new Error(result.message));
       }
-      resolve(null);
+      resolve(result.data);
     } catch {
       reject(new Error("Internal Server Error"));
     }
   });
 
   try {
-    await deleteArtifact;
-    return createApiResponse(null);
+    const res = await getListArtifacts;
+    return createApiResponse(res || []);
   } catch (error) {
     console.error(error);
     return createApiError("Internal Server Error");

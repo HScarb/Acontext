@@ -36,15 +36,15 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
-  getArtifacts,
-  getListFiles,
-  getFile,
-  createArtifact,
+  getDisks,
+  getListArtifacts,
+  getArtifact,
+  createDisk,
+  deleteDisk,
+  uploadArtifact,
   deleteArtifact,
-  uploadFile,
-  deleteFile,
-} from "@/api/models/artifact";
-import { Artifact, ListFilesResp, ArtifactFile as FileInfo } from "@/types";
+} from "@/api/models/disk";
+import { Disk, ListArtifactsResp, Artifact as FileInfo } from "@/types";
 import ReactCodeMirror from "@uiw/react-codemirror";
 import { okaidia } from "@uiw/codemirror-theme-okaidia";
 import { json } from "@codemirror/lang-json";
@@ -221,8 +221,8 @@ function Node({
   );
 }
 
-export default function ArtifactPage() {
-  const t = useTranslations("artifact");
+export default function DiskPage() {
+  const t = useTranslations("disk");
   const { resolvedTheme } = useTheme();
 
   const treeRef = useRef<TreeApi<TreeNode>>(null);
@@ -231,12 +231,12 @@ export default function ArtifactPage() {
   const [treeData, setTreeData] = useState<TreeNode[]>([]);
   const [isInitialLoading, setIsInitialLoading] = useState(false);
 
-  // Artifact related states
-  const [artifacts, setArtifacts] = useState<Artifact[]>([]);
-  const [selectedArtifact, setSelectedArtifact] = useState<Artifact | null>(
+  // Disk related states
+  const [disks, setDisks] = useState<Disk[]>([]);
+  const [selectedDisk, setSelectedDisk] = useState<Disk | null>(
     null
   );
-  const [isLoadingArtifacts, setIsLoadingArtifacts] = useState(true);
+  const [isLoadingDisks, setIsLoadingDisks] = useState(true);
 
   // File preview states
   const [imageUrl, setImageUrl] = useState<string | null>(null);
@@ -245,17 +245,17 @@ export default function ArtifactPage() {
 
   // Delete confirmation dialog states
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [artifactToDelete, setArtifactToDelete] = useState<Artifact | null>(
+  const [diskToDelete, setDiskToDelete] = useState<Disk | null>(
     null
   );
   const [isDeleting, setIsDeleting] = useState(false);
 
-  // Delete file confirmation dialog states
-  const [deleteFileDialogOpen, setDeleteFileDialogOpen] = useState(false);
-  const [fileToDelete, setFileToDelete] = useState<TreeNode | null>(null);
-  const [isDeletingFile, setIsDeletingFile] = useState(false);
+  // Delete artifact confirmation dialog states
+  const [deleteArtifactDialogOpen, setDeleteArtifactDialogOpen] = useState(false);
+  const [artifactToDelete, setArtifactToDelete] = useState<TreeNode | null>(null);
+  const [isDeletingArtifact, setIsDeletingArtifact] = useState(false);
 
-  // Upload file states
+  // Upload artifact states
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isUploading, setIsUploading] = useState(false);
 
@@ -270,7 +270,7 @@ export default function ArtifactPage() {
     null
   );
 
-  // Create artifact states
+  // Create disk states
   const [isCreating, setIsCreating] = useState(false);
 
   // Refresh states
@@ -279,41 +279,41 @@ export default function ArtifactPage() {
   // Filter state
   const [filterText, setFilterText] = useState("");
 
-  // Filtered artifacts based on search text
-  const filteredArtifacts = artifacts.filter((artifact) =>
-    artifact.id.toLowerCase().includes(filterText.toLowerCase())
+  // Filtered disks based on search text
+  const filteredDisks = disks.filter((disk) =>
+    disk.id.toLowerCase().includes(filterText.toLowerCase())
   );
 
-  // Load artifacts function (extracted for reuse)
-  const loadArtifacts = async () => {
+  // Load disks function (extracted for reuse)
+  const loadDisks = async () => {
     try {
-      setIsLoadingArtifacts(true);
-      const res = await getArtifacts();
+      setIsLoadingDisks(true);
+      const res = await getDisks();
       if (res.code !== 0) {
         console.error(res.message);
         return;
       }
-      setArtifacts(res.data || []);
+      setDisks(res.data || []);
     } catch (error) {
-      console.error("Failed to load artifacts:", error);
+      console.error("Failed to load disks:", error);
     } finally {
-      setIsLoadingArtifacts(false);
+      setIsLoadingDisks(false);
     }
   };
 
-  // Load artifact list when component mounts
+  // Load disk list when component mounts
   useEffect(() => {
-    loadArtifacts();
+    loadDisks();
   }, []);
 
-  const formatFiles = (path: string, res: ListFilesResp) => {
-    const files: TreeNode[] = res.files.map((file) => ({
-      id: `${file.path}${file.filename}`,
-      name: file.filename,
+  const formatArtifacts = (path: string, res: ListArtifactsResp) => {
+    const artifacts: TreeNode[] = res.artifacts.map((artifact) => ({
+      id: `${artifact.path}${artifact.filename}`,
+      name: artifact.filename,
       type: "file",
-      path: file.path,
+      path: artifact.path,
       isLoaded: false,
-      fileInfo: file,
+      fileInfo: artifact,
     }));
     const directories: TreeNode[] = res.directories.map((directory) => ({
       id: `${path}${directory}/`,
@@ -322,25 +322,25 @@ export default function ArtifactPage() {
       path: `${path}${directory}/`,
       isLoaded: false,
     }));
-    return [...directories, ...files];
+    return [...directories, ...artifacts];
   };
 
-  // Load root directory files when artifact is selected
-  const handleArtifactSelect = async (artifact: Artifact) => {
-    setSelectedArtifact(artifact);
+  // Load root directory artifacts when disk is selected
+  const handleDiskSelect = async (disk: Disk) => {
+    setSelectedDisk(disk);
     setTreeData([]);
     setSelectedFile(null);
 
     try {
       setIsInitialLoading(true);
-      const res = await getListFiles(artifact.id, "/");
+      const res = await getListArtifacts(disk.id, "/");
       if (res.code !== 0 || !res.data) {
         console.error(res.message);
         return;
       }
-      setTreeData(formatFiles("/", res.data));
+      setTreeData(formatArtifacts("/", res.data));
     } catch (error) {
-      console.error("Failed to load files:", error);
+      console.error("Failed to load artifacts:", error);
     } finally {
       setIsInitialLoading(false);
     }
@@ -348,7 +348,7 @@ export default function ArtifactPage() {
 
   const handleToggle = async (nodeId: string) => {
     const node = treeRef.current?.get(nodeId);
-    if (!node || node.data.type !== "folder" || !selectedArtifact) return;
+    if (!node || node.data.type !== "folder" || !selectedDisk) return;
 
     // Return if already loaded
     if (node.data.isLoaded) return;
@@ -358,12 +358,12 @@ export default function ArtifactPage() {
 
     try {
       // Load children using unified interface with artifact_id and path
-      const children = await getListFiles(selectedArtifact.id, node.data.path);
+      const children = await getListArtifacts(selectedDisk.id, node.data.path);
       if (children.code !== 0 || !children.data) {
         console.error(children.message);
         return;
       }
-      const files = formatFiles(node.data.path, children.data);
+      const files = formatArtifacts(node.data.path, children.data);
 
       // Update node data
       setTreeData((prevData) => {
@@ -407,20 +407,20 @@ export default function ArtifactPage() {
   };
 
   // Handle create artifact
-  const handleCreateArtifact = async () => {
+  const handleCreateDisk = async () => {
     try {
       setIsCreating(true);
-      const res = await createArtifact();
+      const res = await createDisk();
       if (res.code !== 0) {
         console.error(res.message);
         return;
       }
       // Reload artifacts list
-      await loadArtifacts();
+      await loadDisks();
       // Auto-select the newly created artifact
       if (res.data) {
-        setSelectedArtifact(res.data);
-        handleArtifactSelect(res.data);
+        setSelectedDisk(res.data);
+        handleDiskSelect(res.data);
       }
     } catch (error) {
       console.error("Failed to create artifact:", error);
@@ -429,20 +429,20 @@ export default function ArtifactPage() {
     }
   };
 
-  // Handle delete artifact confirmation
-  const handleDeleteClick = (artifact: Artifact, e: React.MouseEvent) => {
+  // Handle delete disk confirmation
+  const handleDeleteClick = (disk: Disk, e: React.MouseEvent) => {
     e.stopPropagation();
-    setArtifactToDelete(artifact);
+    setDiskToDelete(disk);
     setDeleteDialogOpen(true);
   };
 
-  // Handle delete artifact
-  const handleDeleteArtifact = async () => {
-    if (!artifactToDelete) return;
+  // Handle delete disk
+  const handleDeleteDisk = async () => {
+    if (!diskToDelete) return;
 
     try {
       setIsDeleting(true);
-      const res = await deleteArtifact(artifactToDelete.id);
+      const res = await deleteDisk(diskToDelete.id);
       if (res.code !== 0) {
         console.error(res.message);
         return;
@@ -453,20 +453,20 @@ export default function ArtifactPage() {
       setImageUrl(null);
 
       // If the deleted artifact is the currently selected one, clear selection
-      if (selectedArtifact?.id === artifactToDelete.id) {
-        setSelectedArtifact(null);
+      if (selectedDisk?.id === diskToDelete.id) {
+        setSelectedDisk(null);
         setTreeData([]);
       }
 
       // Reload artifacts list
-      await loadArtifacts();
+      await loadDisks();
 
       // If there's a selected artifact (and it's not the one being deleted), reload its file tree
-      if (selectedArtifact && selectedArtifact.id !== artifactToDelete.id) {
+      if (selectedDisk && selectedDisk.id !== diskToDelete.id) {
         setTreeData([]);
-        const filesRes = await getListFiles(selectedArtifact.id, "/");
+        const filesRes = await getListArtifacts(selectedDisk.id, "/");
         if (filesRes.code === 0 && filesRes.data) {
-          setTreeData(formatFiles("/", filesRes.data));
+          setTreeData(formatArtifacts("/", filesRes.data));
         }
       }
     } catch (error) {
@@ -474,12 +474,12 @@ export default function ArtifactPage() {
     } finally {
       setIsDeleting(false);
       setDeleteDialogOpen(false);
-      setArtifactToDelete(null);
+      setDiskToDelete(null);
     }
   };
 
   // Handle refresh artifacts
-  const handleRefreshArtifacts = async () => {
+  const handleRefreshDisks = async () => {
     try {
       setIsRefreshing(true);
       // Clear file selection and preview
@@ -487,14 +487,14 @@ export default function ArtifactPage() {
       setImageUrl(null);
 
       // Reload artifacts list
-      await loadArtifacts();
+      await loadDisks();
 
       // If there's a selected artifact, reload its file tree
-      if (selectedArtifact) {
+      if (selectedDisk) {
         setTreeData([]);
-        const res = await getListFiles(selectedArtifact.id, "/");
+        const res = await getListArtifacts(selectedDisk.id, "/");
         if (res.code === 0 && res.data) {
-          setTreeData(formatFiles("/", res.data));
+          setTreeData(formatArtifacts("/", res.data));
         }
       }
     } catch (error) {
@@ -555,7 +555,7 @@ export default function ArtifactPage() {
 
   // Handle actual file upload
   const handleUploadConfirm = async () => {
-    if (!selectedUploadFile || !selectedArtifact) return;
+    if (!selectedUploadFile || !selectedDisk) return;
 
     // Parse and validate JSON
     let meta: Record<string, string> | undefined;
@@ -579,8 +579,8 @@ export default function ArtifactPage() {
       setIsUploading(true);
       setUploadDialogOpen(false);
 
-      const res = await uploadFile(
-        selectedArtifact.id,
+      const res = await uploadArtifact(
+        selectedDisk.id,
         uploadPath,
         selectedUploadFile,
         meta
@@ -593,9 +593,9 @@ export default function ArtifactPage() {
 
       // Refresh the entire directory tree from root
       setTreeData([]);
-      const filesRes = await getListFiles(selectedArtifact.id, "/");
+      const filesRes = await getListArtifacts(selectedDisk.id, "/");
       if (filesRes.code === 0 && filesRes.data) {
-        setTreeData(formatFiles("/", filesRes.data));
+        setTreeData(formatArtifacts("/", filesRes.data));
       }
     } catch (error) {
       console.error("Failed to upload file:", error);
@@ -624,20 +624,20 @@ export default function ArtifactPage() {
   };
 
   // Handle delete file click
-  const handleDeleteFileClick = () => {
+  const handleDeleteArtifactClick = () => {
     if (!selectedFile) return;
-    setFileToDelete(selectedFile);
-    setDeleteFileDialogOpen(true);
+    setArtifactToDelete(selectedFile);
+    setDeleteArtifactDialogOpen(true);
   };
 
   // Handle delete file confirmation
-  const handleDeleteFile = async () => {
-    if (!fileToDelete || !selectedArtifact || !fileToDelete.fileInfo) return;
+  const handleDeleteArtifact = async () => {
+    if (!artifactToDelete || !selectedDisk || !artifactToDelete.fileInfo) return;
 
     try {
-      setIsDeletingFile(true);
-      const fullPath = `${fileToDelete.path}${fileToDelete.fileInfo.filename}`;
-      const res = await deleteFile(selectedArtifact.id, fullPath);
+      setIsDeletingArtifact(true);
+      const fullPath = `${artifactToDelete.path}${artifactToDelete.fileInfo.filename}`;
+      const res = await deleteArtifact(selectedDisk.id, fullPath);
 
       if (res.code !== 0) {
         console.error(res.message);
@@ -661,14 +661,14 @@ export default function ArtifactPage() {
       const reloadDirectoryRecursively = async (
         currentPath: string
       ): Promise<void> => {
-        const filesRes = await getListFiles(selectedArtifact.id, currentPath);
+        const filesRes = await getListArtifacts(selectedDisk.id, currentPath);
 
         if (filesRes.code !== 0 || !filesRes.data) {
           console.error(filesRes.message);
           return;
         }
 
-        const files = formatFiles(currentPath, filesRes.data);
+        const files = formatArtifacts(currentPath, filesRes.data);
         const isEmpty = files.length === 0;
 
         if (currentPath === "/") {
@@ -710,14 +710,14 @@ export default function ArtifactPage() {
       };
 
       // Start reloading from the parent path
-      const parentPath = fileToDelete.path;
+      const parentPath = artifactToDelete.path;
       await reloadDirectoryRecursively(parentPath);
     } catch (error) {
       console.error("Failed to delete file:", error);
     } finally {
-      setIsDeletingFile(false);
-      setDeleteFileDialogOpen(false);
-      setFileToDelete(null);
+      setIsDeletingArtifact(false);
+      setDeleteArtifactDialogOpen(false);
+      setArtifactToDelete(null);
     }
   };
 
@@ -728,12 +728,12 @@ export default function ArtifactPage() {
 
   // Handle preview button click
   const handlePreviewClick = async () => {
-    if (!selectedFile || !selectedArtifact || !selectedFile.fileInfo) return;
+    if (!selectedFile || !selectedDisk || !selectedFile.fileInfo) return;
 
     try {
       setIsLoadingPreview(true);
-      const res = await getFile(
-        selectedArtifact.id,
+      const res = await getArtifact(
+        selectedDisk.id,
         `${selectedFile.path}${selectedFile.fileInfo.filename}`
       );
       if (res.code !== 0) {
@@ -750,12 +750,12 @@ export default function ArtifactPage() {
 
   // Handle download button click
   const handleDownloadClick = async () => {
-    if (!selectedFile || !selectedArtifact || !selectedFile.fileInfo) return;
+    if (!selectedFile || !selectedDisk || !selectedFile.fileInfo) return;
 
     try {
       setIsLoadingDownload(true);
-      const res = await getFile(
-        selectedArtifact.id,
+      const res = await getArtifact(
+        selectedDisk.id,
         `${selectedFile.path}${selectedFile.fileInfo.filename}`
       );
       if (res.code !== 0) {
@@ -791,8 +791,8 @@ export default function ArtifactPage() {
                 <Button
                   variant="outline"
                   size="icon"
-                  onClick={handleCreateArtifact}
-                  disabled={isCreating || isLoadingArtifacts}
+                  onClick={handleCreateDisk}
+                  disabled={isCreating || isLoadingDisks}
                   title={t("createTooltip")}
                 >
                   {isCreating ? (
@@ -805,8 +805,8 @@ export default function ArtifactPage() {
                 <Button
                   variant="outline"
                   size="icon"
-                  onClick={handleRefreshArtifacts}
-                  disabled={isRefreshing || isLoadingArtifacts}
+                  onClick={handleRefreshDisks}
+                  disabled={isRefreshing || isLoadingDisks}
                   title={t("refreshTooltip")}
                 >
                   {isRefreshing ? (
@@ -828,9 +828,9 @@ export default function ArtifactPage() {
             />
           </div>
 
-          {/* Artifact list */}
+          {/* Disk list */}
           <div className="flex-1 overflow-auto">
-            {isLoadingArtifacts ? (
+            {isLoadingDisks ? (
               <div className="flex items-center justify-center h-full">
                 <div className="flex flex-col items-center gap-2">
                   <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -839,44 +839,44 @@ export default function ArtifactPage() {
                   </p>
                 </div>
               </div>
-            ) : filteredArtifacts.length === 0 ? (
+            ) : filteredDisks.length === 0 ? (
               <div className="flex items-center justify-center h-full">
                 <p className="text-sm text-muted-foreground">
-                  {artifacts.length === 0
+                  {disks.length === 0
                     ? t("noArtifacts")
                     : t("noMatchingArtifacts")}
                 </p>
               </div>
             ) : (
               <div className="space-y-2">
-                {filteredArtifacts.map((artifact) => {
-                  const isSelected = selectedArtifact?.id === artifact.id;
+                {filteredDisks.map((disk) => {
+                  const isSelected = selectedDisk?.id === disk.id;
                   return (
                     <div
-                      key={artifact.id}
+                      key={disk.id}
                       className={cn(
                         "group relative rounded-md border p-3 cursor-pointer transition-colors hover:bg-accent",
                         isSelected && "bg-accent border-primary"
                       )}
-                      onClick={() => handleArtifactSelect(artifact)}
+                      onClick={() => handleDiskSelect(disk)}
                     >
                       <div className="flex items-center justify-between gap-2">
                         <div className="flex-1 min-w-0">
                           <p
                             className="text-sm font-medium truncate"
-                            title={artifact.id}
+                            title={disk.id}
                           >
-                            {artifact.id}
+                            {disk.id}
                           </p>
                           <p className="text-xs text-muted-foreground mt-1">
-                            {new Date(artifact.created_at).toLocaleString()}
+                            {new Date(disk.created_at).toLocaleString()}
                           </p>
                         </div>
                         <Button
                           variant="ghost"
                           size="icon"
                           className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
-                          onClick={(e) => handleDeleteClick(artifact, e)}
+                          onClick={(e) => handleDeleteClick(disk, e)}
                         >
                           <Trash2 className="h-3.5 w-3.5 text-destructive" />
                         </Button>
@@ -907,7 +907,7 @@ export default function ArtifactPage() {
           />
 
           <div className="h-[calc(100vh-8rem)]">
-            {!selectedArtifact ? (
+            {!selectedDisk ? (
               <div className="flex items-center justify-center h-full">
                 <p className="text-sm text-muted-foreground">
                   {t("selectArtifactPrompt")}
@@ -997,7 +997,7 @@ export default function ArtifactPage() {
                       {t("mimeType")}
                     </p>
                     <p className="text-sm font-mono bg-muted px-2 py-1 rounded">
-                      {selectedFile.fileInfo.meta.__file_info__.mime}
+                      {selectedFile.fileInfo.meta.__artifact_info__.mime}
                     </p>
                   </div>
 
@@ -1006,7 +1006,7 @@ export default function ArtifactPage() {
                       {t("size")}
                     </p>
                     <p className="text-sm font-mono bg-muted px-2 py-1 rounded">
-                      {selectedFile.fileInfo.meta.__file_info__.size}{" "}
+                      {selectedFile.fileInfo.meta.__artifact_info__.size}{" "}
                     </p>
                   </div>
 
@@ -1033,10 +1033,10 @@ export default function ArtifactPage() {
                   </div>
                 </div>
 
-                {/* Additional meta information (excluding __file_info__) */}
+                {/* Additional meta information (excluding __artifact_info__) */}
                 {(() => {
                   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-                  const { __file_info__, ...additionalMeta } =
+                  const { __artifact_info__, ...additionalMeta } =
                     selectedFile.fileInfo.meta || {};
 
                   if (Object.keys(additionalMeta).length > 0) {
@@ -1084,10 +1084,10 @@ export default function ArtifactPage() {
                     <Button
                       variant="destructive"
                       className="flex-1"
-                      onClick={handleDeleteFileClick}
-                      disabled={isDeletingFile}
+                      onClick={handleDeleteArtifactClick}
+                      disabled={isDeletingArtifact}
                     >
-                      {isDeletingFile ? (
+                      {isDeletingArtifact ? (
                         <>
                           <Loader2 className="h-4 w-4 animate-spin mr-2" />
                           {t("deleting")}
@@ -1103,7 +1103,7 @@ export default function ArtifactPage() {
                 </div>
 
                 {/* Preview section for images */}
-                {selectedFile.fileInfo.meta.__file_info__.mime.startsWith(
+                {selectedFile.fileInfo.meta.__artifact_info__.mime.startsWith(
                   "image/"
                 ) && (
                   <div className="border-t pt-6">
@@ -1164,7 +1164,7 @@ export default function ArtifactPage() {
             <AlertDialogDescription>
               {t("deleteArtifactDescription")}{" "}
               <span className="font-mono font-semibold">
-                {artifactToDelete?.id}
+                {diskToDelete?.id}
               </span>
               {t("deleteArtifactWarning")}
             </AlertDialogDescription>
@@ -1174,7 +1174,7 @@ export default function ArtifactPage() {
               {t("cancel")}
             </AlertDialogCancel>
             <AlertDialogAction
-              onClick={handleDeleteArtifact}
+              onClick={handleDeleteDisk}
               disabled={isDeleting}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
@@ -1193,8 +1193,8 @@ export default function ArtifactPage() {
 
       {/* Delete file confirmation dialog */}
       <AlertDialog
-        open={deleteFileDialogOpen}
-        onOpenChange={setDeleteFileDialogOpen}
+        open={deleteArtifactDialogOpen}
+        onOpenChange={setDeleteArtifactDialogOpen}
       >
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -1202,21 +1202,21 @@ export default function ArtifactPage() {
             <AlertDialogDescription>
               {t("deleteFileDescription")}{" "}
               <span className="font-mono font-semibold">
-                {fileToDelete?.fileInfo?.filename}
+                {artifactToDelete?.fileInfo?.filename}
               </span>
               {t("deleteFileWarning")}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={isDeletingFile}>
+            <AlertDialogCancel disabled={isDeletingArtifact}>
               {t("cancel")}
             </AlertDialogCancel>
             <AlertDialogAction
-              onClick={handleDeleteFile}
-              disabled={isDeletingFile}
+              onClick={handleDeleteArtifact}
+              disabled={isDeletingArtifact}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              {isDeletingFile ? (
+              {isDeletingArtifact ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin mr-2" />
                   {t("deleting")}

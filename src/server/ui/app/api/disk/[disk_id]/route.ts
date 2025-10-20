@@ -1,24 +1,20 @@
 import { createApiResponse, createApiError } from "@/lib/api-response";
-import { ListFilesResp } from "@/types";
 
-export async function GET(
+export async function DELETE(
   req: Request,
-  { params }: { params: Promise<{ artifact_id: string }> }
+  { params }: { params: Promise<{ disk_id: string }> }
 ) {
-  const artifact_id = (await params).artifact_id;
-  if (!artifact_id) {
-    return createApiError("artifact_id is required");
+  const disk_id = (await params).disk_id;
+  if (!disk_id) {
+    return createApiError("disk_id is required");
   }
 
-  const { searchParams } = new URL(req.url);
-  const path = searchParams.get("path") || "/";
-
-  const getListFiles = new Promise<ListFilesResp>(async (resolve, reject) => {
+  const deleteDisk = new Promise<null>(async (resolve, reject) => {
     try {
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_SERVER_URL}/api/v1/artifact/${artifact_id}/file/ls?path=${path}`,
+        `${process.env.NEXT_PUBLIC_API_SERVER_URL}/api/v1/disk/${disk_id}`,
         {
-          method: "GET",
+          method: "DELETE",
           headers: {
             "Content-Type": "application/json",
             Authorization: `Bearer sk-ac-${process.env.ROOT_API_BEARER_TOKEN}`,
@@ -33,17 +29,18 @@ export async function GET(
       if (result.code !== 0) {
         reject(new Error(result.message));
       }
-      resolve(result.data);
+      resolve(null);
     } catch {
       reject(new Error("Internal Server Error"));
     }
   });
 
   try {
-    const res = await getListFiles;
-    return createApiResponse(res || []);
+    await deleteDisk;
+    return createApiResponse(null);
   } catch (error) {
     console.error(error);
     return createApiError("Internal Server Error");
   }
 }
+

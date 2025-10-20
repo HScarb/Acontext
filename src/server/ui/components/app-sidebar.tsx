@@ -32,8 +32,8 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const data = {
     navMain: [
       {
-        title: t("artifact"),
-        url: "/artifact",
+        title: t("disk"),
+        url: "/disk",
         icon: Folder,
       },
       {

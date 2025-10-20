@@ -1,16 +1,16 @@
-export interface Artifact {
+export interface Disk {
   id: string;
   project_id: string;
   created_at: string;
   updated_at: string;
 }
 
-export interface ArtifactFile {
-  artifact_id: string;
+export interface Artifact {
+  disk_id: string;
   path: string;
   filename: string;
   meta: {
-    __file_info__: {
+    __artifact_info__: {
       filename: string;
       mime: string;
       path: string;
@@ -22,13 +22,13 @@ export interface ArtifactFile {
   updated_at: string;
 }
 
-export interface ListFilesResp {
-  files: ArtifactFile[];
+export interface ListArtifactsResp {
+  artifacts: Artifact[];
   directories: string[];
 }
 
-export interface GetFileResp {
-  file: ArtifactFile;
+export interface GetArtifactResp {
+  artifact: Artifact;
   public_url: string | null;
 }
 

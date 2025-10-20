@@ -1,11 +1,11 @@
 import { createApiResponse, createApiError } from "@/lib/api-response";
-import { Artifact } from "@/types";
+import { Disk } from "@/types";
 
 export async function GET() {
-  const getArtifacts = new Promise<Artifact[]>(async (resolve, reject) => {
+  const getDisks = new Promise<Disk[]>(async (resolve, reject) => {
     try {
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_SERVER_URL}/api/v1/artifact`,
+        `${process.env.NEXT_PUBLIC_API_SERVER_URL}/api/v1/disk`,
         {
           method: "GET",
           headers: {
@@ -29,7 +29,7 @@ export async function GET() {
   });
 
   try {
-    const res = await getArtifacts;
+    const res = await getDisks;
     return createApiResponse(res || []);
   } catch (error) {
     console.error(error);
@@ -38,10 +38,10 @@ export async function GET() {
 }
 
 export async function POST() {
-  const createArtifact = new Promise<Artifact>(async (resolve, reject) => {
+  const createDisk = new Promise<Disk>(async (resolve, reject) => {
     try {
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_SERVER_URL}/api/v1/artifact`,
+        `${process.env.NEXT_PUBLIC_API_SERVER_URL}/api/v1/disk`,
         {
           method: "POST",
           headers: {
@@ -65,10 +65,11 @@ export async function POST() {
   });
 
   try {
-    const res = await createArtifact;
+    const res = await createDisk;
     return createApiResponse(res);
   } catch (error) {
     console.error(error);
     return createApiError("Internal Server Error");
   }
 }
+
