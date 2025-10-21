@@ -16,6 +16,7 @@ async def _append_messages_to_task_handler(
 ) -> Result[str]:
     task_order: int = llm_arguments.get("task_order", None)
     message_order_indexes = llm_arguments.get("message_ids", [])
+    progress_note = llm_arguments.get("progress", None)
     if not task_order:
         return Result.resolve(
             f"You must provide a task order argument, so that we can attach messages to the task. Appending failed."
@@ -44,12 +45,16 @@ async def _append_messages_to_task_handler(
         actually_message_ids,
         actually_task_id,
     )
-    return (
-        Result.resolve(
-            f"Messages {message_order_indexes} appended to task {task_order}"
+    if not r.ok():
+        return r
+    if progress_note is not None:
+        r = await TD.append_progress_to_task(
+            ctx.db_session, actually_task_id, progress_note
         )
-        if r.ok()
-        else r
+        if not r.ok():
+            return r
+    return Result.resolve(
+        f"Messages {message_order_indexes} and progress are appended to task {task_order}"
     )
 
 
@@ -59,10 +64,10 @@ _append_messages_to_task_tool = (
         ToolSchema(
             function={
                 "name": "append_messages_to_task",
-                "description": """Link current message ids to a task for tracking progress and context.
-Use this to associate conversation messages with relevant tasks.
-Make sure you append messages first(if any), then update the task status.
-If you decide to append message to a task marked as 'success' or 'failed', update it's status to 'running' first""",
+                "description": """Link relevant message ids to a task for tracking progress and context. Use this to associate relevant messages with a task.
+- Mark the progress and learnings that relevant messages have contributed to the task.
+- Make sure you append messages first(if any), then update the task status.
+- If you decide to append message to a task marked as 'success' or 'failed', update it's status to 'running' first""",
                 "parameters": {
                     "type": "object",
                     "properties": {
@@ -70,13 +75,17 @@ If you decide to append message to a task marked as 'success' or 'failed', updat
                             "type": "integer",
                             "description": "The order number of the task to link messages to.",
                         },
+                        "progress": {
+                            "type": "string",
+                            "description": "The progress and learnings from relevant messages. Narrate progress in the first person as the agent.",
+                        },
                         "message_ids": {
                             "type": "array",
                             "items": {"type": "integer"},
                             "description": "List of message IDs to append to the task.",
                         },
                     },
-                    "required": ["task_order", "message_ids"],
+                    "required": ["task_order", "progress", "message_ids"],
                 },
             }
         )

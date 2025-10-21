@@ -12,7 +12,7 @@ from sqlalchemy import (
     Boolean,
 )
 from sqlalchemy.orm import relationship
-from sqlalchemy.dialects.postgresql import JSONB, UUID
+from sqlalchemy.dialects.postgresql import JSONB, UUID, ARRAY
 from typing import TYPE_CHECKING, Optional, List
 from .base import ORM_BASE, CommonMixin
 from ..session.task import TaskStatus
@@ -94,6 +94,11 @@ class Task(CommonMixin):
         metadata={
             "db": Column(Boolean, nullable=False, default=False, server_default="false")
         },
+    )
+
+    progresses: Optional[List[str]] = field(
+        default=None,
+        metadata={"db": Column(ARRAY(String), nullable=True)},
     )
 
     # Relationships

@@ -1,10 +1,9 @@
-import asyncio
-import json
+from sqlalchemy import String
 from typing import List, Optional
-from sqlalchemy import select, delete, update
+from sqlalchemy import select, delete, update, func, cast
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
-from yaml.resolver import Resolver
+from sqlalchemy.dialects.postgresql import ARRAY
 from ...schema.orm import Task, Message
 from ...schema.result import Result
 from ...schema.utils import asUUID
@@ -218,6 +217,27 @@ async def append_messages_to_task(
     # set those messages' task_id to task_id
     await db_session.execute(
         update(Message).where(Message.id.in_(message_ids)).values(task_id=task_id)
+    )
+    await db_session.flush()
+    return Result.resolve(None)
+
+
+async def append_progress_to_task(
+    db_session: AsyncSession,
+    task_id: asUUID,
+    progress: str,
+) -> Result[None]:
+    # append the progress to the task
+    # Use coalesce to handle NULL, then append to the array
+    assert progress is not None
+    await db_session.execute(
+        update(Task)
+        .where(Task.id == task_id)
+        .values(
+            progresses=func.coalesce(Task.progresses, cast([], ARRAY(String))).concat(
+                [progress]
+            )
+        )
     )
     await db_session.flush()
     return Result.resolve(None)

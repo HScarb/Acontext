@@ -7,6 +7,7 @@ from acontext_core.service.data.task import (
     update_task,
     insert_task,
     delete_task,
+    append_progress_to_task,
 )
 from acontext_core.schema.orm import Task, Project, Space, Session
 from acontext_core.schema.result import Result
@@ -1142,5 +1143,279 @@ class TestIntegrationScenarios:
             # additional logic. For now, just verify the update worked.
             task1_updated = next(t for t in tasks2 if t.id == task1.id)
             assert task1_updated.order == 10
+
+            await session.delete(project)
+
+
+class TestAppendProgressToTask:
+    @pytest.mark.asyncio
+    async def test_append_progress_to_null_progresses(self):
+        """Test appending progress when progresses field is NULL"""
+        db_client = DatabaseClient()
+        await db_client.create_tables()
+
+        async with db_client.get_session_context() as session:
+            # Create test data
+            project = Project(
+                secret_key_hmac="test_key_hmac_progress1",
+                secret_key_hash_phc="test_key_hash_progress1",
+            )
+            session.add(project)
+            await session.flush()
+
+            space = Space(project_id=project.id)
+            session.add(space)
+            await session.flush()
+
+            test_session = Session(project_id=project.id, space_id=space.id)
+            session.add(test_session)
+            await session.flush()
+
+            # Create task with NULL progresses
+            task = Task(
+                session_id=test_session.id,
+                project_id=project.id,
+                order=1,
+                data={"name": "test_task"},
+                status="running",
+                progresses=None,  # Explicitly NULL
+            )
+            session.add(task)
+            await session.flush()
+
+            # Append first progress
+            progress_message = "Started processing data"
+            result = await append_progress_to_task(session, task.id, progress_message)
+
+            # Verify result
+            data, error = result.unpack()
+            assert error is None
+            assert data is None  # Function returns None on success
+
+            # Verify the progress was appended
+            await session.refresh(task)
+            assert task.progresses is not None
+            assert len(task.progresses) == 1
+            assert task.progresses[0] == progress_message
+
+            await session.delete(project)
+
+    @pytest.mark.asyncio
+    async def test_append_progress_to_existing_progresses(self):
+        """Test appending progress to existing progresses array"""
+        db_client = DatabaseClient()
+        await db_client.create_tables()
+
+        async with db_client.get_session_context() as session:
+            # Create test data
+            project = Project(
+                secret_key_hmac="test_key_hmac_progress2",
+                secret_key_hash_phc="test_key_hash_progress2",
+            )
+            session.add(project)
+            await session.flush()
+
+            space = Space(project_id=project.id)
+            session.add(space)
+            await session.flush()
+
+            test_session = Session(project_id=project.id, space_id=space.id)
+            session.add(test_session)
+            await session.flush()
+
+            # Create task with initial progresses
+            initial_progresses = ["Started task", "Loading data"]
+            task = Task(
+                session_id=test_session.id,
+                project_id=project.id,
+                order=1,
+                data={"name": "test_task"},
+                status="running",
+                progresses=initial_progresses.copy(),
+            )
+            session.add(task)
+            await session.flush()
+
+            # Append new progress
+            new_progress = "Processing data"
+            result = await append_progress_to_task(session, task.id, new_progress)
+
+            # Verify result
+            data, error = result.unpack()
+            assert error is None
+            assert data is None
+
+            # Verify the progress was appended
+            await session.refresh(task)
+            assert task.progresses is not None
+            assert len(task.progresses) == 3
+            assert task.progresses[0] == "Started task"
+            assert task.progresses[1] == "Loading data"
+            assert task.progresses[2] == "Processing data"
+
+            await session.delete(project)
+
+    @pytest.mark.asyncio
+    async def test_append_multiple_progresses_sequentially(self):
+        """Test appending multiple progresses in sequence"""
+        db_client = DatabaseClient()
+        await db_client.create_tables()
+
+        async with db_client.get_session_context() as session:
+            # Create test data
+            project = Project(
+                secret_key_hmac="test_key_hmac_progress3",
+                secret_key_hash_phc="test_key_hash_progress3",
+            )
+            session.add(project)
+            await session.flush()
+
+            space = Space(project_id=project.id)
+            session.add(space)
+            await session.flush()
+
+            test_session = Session(project_id=project.id, space_id=space.id)
+            session.add(test_session)
+            await session.flush()
+
+            # Create task with NULL progresses
+            task = Task(
+                session_id=test_session.id,
+                project_id=project.id,
+                order=1,
+                data={"name": "test_task"},
+                status="running",
+                progresses=None,
+            )
+            session.add(task)
+            await session.flush()
+
+            # Append multiple progresses
+            progress_messages = [
+                "Task initialized",
+                "Data loaded",
+                "Processing started",
+                "50% complete",
+                "Processing finished",
+            ]
+
+            for progress in progress_messages:
+                result = await append_progress_to_task(session, task.id, progress)
+                data, error = result.unpack()
+                assert error is None
+
+            # Verify all progresses were appended in order
+            await session.refresh(task)
+            assert task.progresses is not None
+            assert len(task.progresses) == len(progress_messages)
+            for i, progress in enumerate(progress_messages):
+                assert task.progresses[i] == progress
+
+            await session.delete(project)
+
+    @pytest.mark.asyncio
+    async def test_append_progress_with_empty_array(self):
+        """Test appending progress to an empty array"""
+        db_client = DatabaseClient()
+        await db_client.create_tables()
+
+        async with db_client.get_session_context() as session:
+            # Create test data
+            project = Project(
+                secret_key_hmac="test_key_hmac_progress4",
+                secret_key_hash_phc="test_key_hash_progress4",
+            )
+            session.add(project)
+            await session.flush()
+
+            space = Space(project_id=project.id)
+            session.add(space)
+            await session.flush()
+
+            test_session = Session(project_id=project.id, space_id=space.id)
+            session.add(test_session)
+            await session.flush()
+
+            # Create task with empty progresses array
+            task = Task(
+                session_id=test_session.id,
+                project_id=project.id,
+                order=1,
+                data={"name": "test_task"},
+                status="running",
+                progresses=[],  # Empty array
+            )
+            session.add(task)
+            await session.flush()
+
+            # Append progress
+            progress_message = "First progress after empty array"
+            result = await append_progress_to_task(session, task.id, progress_message)
+
+            # Verify result
+            data, error = result.unpack()
+            assert error is None
+
+            # Verify the progress was appended
+            await session.refresh(task)
+            assert task.progresses is not None
+            assert len(task.progresses) == 1
+            assert task.progresses[0] == progress_message
+
+            await session.delete(project)
+
+    @pytest.mark.asyncio
+    async def test_append_progress_with_special_characters(self):
+        """Test appending progress with special characters and Unicode"""
+        db_client = DatabaseClient()
+        await db_client.create_tables()
+
+        async with db_client.get_session_context() as session:
+            # Create test data
+            project = Project(
+                secret_key_hmac="test_key_hmac_progress5",
+                secret_key_hash_phc="test_key_hash_progress5",
+            )
+            session.add(project)
+            await session.flush()
+
+            space = Space(project_id=project.id)
+            session.add(space)
+            await session.flush()
+
+            test_session = Session(project_id=project.id, space_id=space.id)
+            session.add(test_session)
+            await session.flush()
+
+            task = Task(
+                session_id=test_session.id,
+                project_id=project.id,
+                order=1,
+                data={"name": "test_task"},
+                status="running",
+                progresses=None,
+            )
+            session.add(task)
+            await session.flush()
+
+            # Test with special characters
+            special_progresses = [
+                "Progress with 'quotes' and \"double quotes\"",
+                "Progress with newline\ncharacter",
+                "Progress with Unicode: 你好世界 🚀",
+                "Progress with special chars: !@#$%^&*()",
+            ]
+
+            for progress in special_progresses:
+                result = await append_progress_to_task(session, task.id, progress)
+                data, error = result.unpack()
+                assert error is None
+
+            # Verify all progresses were appended correctly
+            await session.refresh(task)
+            assert task.progresses is not None
+            assert len(task.progresses) == len(special_progresses)
+            for i, progress in enumerate(special_progresses):
+                assert task.progresses[i] == progress
 
             await session.delete(project)

@@ -49,6 +49,12 @@ class TaskPrompt(BasePrompt):
 - No need to link every message, just those messages that are contributed to the process of certain tasks.
 - Make sure the messages are contributed to the process of the task, not just doing random linking.
 - Update task statuses or descriptions when confident about relationships 
+- Give a brief progress or learnings of the task when appending messages
+    - Not need to repeat the detailed results, only what actions have been taken
+    - You should include necessary infos/numbers that may help the following tasks
+    - Narrate progress in the first person as the agent.
+    - Progress should be lean, concise and short
+
 
 ## Update Task Status 
 - `pending`: For tasks not yet started
