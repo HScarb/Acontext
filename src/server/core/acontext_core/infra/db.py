@@ -168,9 +168,17 @@ class DatabaseClient:
         """Create all tables defined in the ORM models."""
         if self._table_created:
             return
+        async with self.get_session_context() as db_session:
+            await db_session.execute(text("CREATE EXTENSION IF NOT EXISTS vector;"))
+        logger.info("pgvector extension init")
         async with self.engine.begin() as conn:
             await conn.run_sync(ORM_BASE.metadata.create_all)
+
         self._table_created = True
+        async with self.get_session_context() as db_session:
+            await check_legal_embedding_dim(
+                BlockEmbedding, db_session, DEFAULT_CORE_CONFIG.block_embedding_dim
+            )
 
     async def drop_tables(self) -> None:
         """Drop all tables defined in the ORM models."""
@@ -206,18 +214,9 @@ DB_CLIENT = DatabaseClient()
 # Convenience functions
 async def init_database() -> None:
     """Initialize the database (create tables)."""
-    async with DB_CLIENT.get_session_context() as db_session:
-        await db_session.execute(text("CREATE EXTENSION IF NOT EXISTS vector;"))
-    logger.info("pgvector extension init")
-
     await DB_CLIENT.create_tables()
     assert await DB_CLIENT.health_check(), "Database health check failed"
     logger.info(f"Database created successfully {DB_CLIENT.get_pool_status()}")
-
-    async with DB_CLIENT.get_session_context() as db_session:
-        await check_legal_embedding_dim(
-            BlockEmbedding, db_session, DEFAULT_CORE_CONFIG.block_embedding_dim
-        )
 
 
 async def close_database() -> None:
