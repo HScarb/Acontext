@@ -10,7 +10,9 @@ class Space(BaseModel):
 
     id: str = Field(..., description="Space UUID")
     project_id: str = Field(..., description="Project UUID")
-    configs: dict[str, Any] | None = Field(None, description="Space configuration dictionary")
+    configs: dict[str, Any] | None = Field(
+        None, description="Space configuration dictionary"
+    )
     created_at: str = Field(..., description="ISO 8601 formatted creation timestamp")
     updated_at: str = Field(..., description="ISO 8601 formatted update timestamp")
 
@@ -21,4 +23,3 @@ class ListSpacesOutput(BaseModel):
     items: list[Space] = Field(..., description="List of spaces")
     next_cursor: str | None = Field(None, description="Cursor for pagination")
     has_more: bool = Field(..., description="Whether there are more items")
-

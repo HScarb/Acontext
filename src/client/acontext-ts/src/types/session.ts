@@ -44,7 +44,7 @@ export const SessionSchema = z.object({
   id: z.string(),
   project_id: z.string(),
   space_id: z.string().nullable(),
-  configs: z.record(z.string(), z.unknown()),
+  configs: z.record(z.string(), z.unknown()).nullable(),
   created_at: z.string(),
   updated_at: z.string(),
 });
