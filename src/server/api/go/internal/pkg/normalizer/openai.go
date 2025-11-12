@@ -279,22 +279,22 @@ func normalizeOpenAIContentPart(partUnion openai.ChatCompletionContentPartUnionP
 		}, nil
 	} else if partUnion.OfFile != nil {
 		meta := map[string]interface{}{}
-		
+
 		// Extract file_id if present
 		if !param.IsOmitted(partUnion.OfFile.File.FileID) {
 			meta["file_id"] = partUnion.OfFile.File.FileID.Value
 		}
-		
+
 		// Extract base64 file_data if present
 		if !param.IsOmitted(partUnion.OfFile.File.FileData) {
 			meta["file_data"] = partUnion.OfFile.File.FileData.Value
 		}
-		
+
 		// Extract filename if present
 		if !param.IsOmitted(partUnion.OfFile.File.Filename) {
 			meta["filename"] = partUnion.OfFile.File.Filename.Value
 		}
-		
+
 		return service.PartIn{
 			Type: "file",
 			Meta: meta,

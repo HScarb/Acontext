@@ -1256,7 +1256,7 @@
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/model.Block"
+                                            "$ref": "#/definitions/httpclient.InsertBlockResponse"
                                         }
                                     }
                                 }
@@ -2040,6 +2040,14 @@
                 "configs": {
                     "type": "object",
                     "additionalProperties": true
+                }
+            }
+        },
+        "httpclient.InsertBlockResponse": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string"
                 }
             }
         },

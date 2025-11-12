@@ -191,7 +191,10 @@ func BuildContainer() *do.Injector {
 		return handler.NewSessionHandler(do.MustInvoke[service.SessionService](i)), nil
 	})
 	do.Provide(inj, func(i *do.Injector) (*handler.BlockHandler, error) {
-		return handler.NewBlockHandler(do.MustInvoke[service.BlockService](i)), nil
+		return handler.NewBlockHandler(
+			do.MustInvoke[service.BlockService](i),
+			do.MustInvoke[*httpclient.CoreClient](i),
+		), nil
 	})
 	do.Provide(inj, func(i *do.Injector) (*handler.DiskHandler, error) {
 		return handler.NewDiskHandler(do.MustInvoke[service.DiskService](i)), nil

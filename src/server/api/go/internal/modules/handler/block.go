@@ -6,6 +6,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/memodb-io/Acontext/internal/infra/httpclient"
 	"github.com/memodb-io/Acontext/internal/modules/model"
 	"github.com/memodb-io/Acontext/internal/modules/serializer"
 	"github.com/memodb-io/Acontext/internal/modules/service"
@@ -14,11 +15,15 @@ import (
 )
 
 type BlockHandler struct {
-	svc service.BlockService
+	svc        service.BlockService
+	coreClient *httpclient.CoreClient
 }
 
-func NewBlockHandler(s service.BlockService) *BlockHandler {
-	return &BlockHandler{svc: s}
+func NewBlockHandler(s service.BlockService, coreClient *httpclient.CoreClient) *BlockHandler {
+	return &BlockHandler{
+		svc:        s,
+		coreClient: coreClient,
+	}
 }
 
 type CreateBlockReq struct {
@@ -38,9 +43,16 @@ type CreateBlockReq struct {
 //	@Param			space_id	path	string					true	"Space ID"	Format(uuid)
 //	@Param			payload		body	handler.CreateBlockReq	true	"CreateBlock payload"
 //	@Security		BearerAuth
-//	@Success		201	{object}	serializer.Response{data=model.Block}
+//	@Success		201	{object}	serializer.Response{data=httpclient.InsertBlockResponse}
 //	@Router			/space/{space_id}/block [post]
 func (h *BlockHandler) CreateBlock(c *gin.Context) {
+	// Get project from context
+	project, ok := c.MustGet("project").(*model.Project)
+	if !ok {
+		c.JSON(http.StatusBadRequest, serializer.ParamErr("", errors.New("project not found")))
+		return
+	}
+
 	spaceID, err := uuid.Parse(c.Param("space_id"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, serializer.ParamErr("", err))
@@ -63,21 +75,22 @@ func (h *BlockHandler) CreateBlock(c *gin.Context) {
 		return
 	}
 
-	b := model.Block{
-		SpaceID:  spaceID,
-		Type:     req.Type,
-		ParentID: req.ParentID,
+	// Prepare request for Core service
+	coreReq := httpclient.InsertBlockRequest{
+		ParentID: *req.ParentID,
+		Props:    req.Props,
 		Title:    req.Title,
-		Props:    datatypes.NewJSONType(req.Props),
+		Type:     req.Type,
 	}
 
-	// Use unified Create method - it handles special logic for folder path
-	if err := h.svc.Create(c.Request.Context(), &b); err != nil {
-		c.JSON(http.StatusInternalServerError, serializer.DBErr("", err))
+	// Call Core service to insert block
+	result, err := h.coreClient.InsertBlock(c.Request.Context(), project.ID, spaceID, coreReq)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, serializer.Err(http.StatusInternalServerError, "failed to insert block", err))
 		return
 	}
 
-	c.JSON(http.StatusCreated, serializer.Response{Data: b})
+	c.JSON(http.StatusCreated, serializer.Response{Data: result})
 }
 
 // DeleteBlock godoc

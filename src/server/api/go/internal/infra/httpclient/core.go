@@ -1,14 +1,15 @@
 package httpclient
 
 import (
+	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"net/url"
 	"time"
 
+	"github.com/bytedance/sonic"
 	"github.com/google/uuid"
 	"github.com/memodb-io/Acontext/internal/config"
 	"go.uber.org/zap"
@@ -108,7 +109,7 @@ func (c *CoreClient) SemanticGrep(ctx context.Context, projectID, spaceID uuid.U
 	}
 
 	var result []SearchResultBlockItem
-	if err := json.Unmarshal(body, &result); err != nil {
+	if err := sonic.Unmarshal(body, &result); err != nil {
 		return nil, fmt.Errorf("unmarshal response: %w", err)
 	}
 
@@ -153,7 +154,7 @@ func (c *CoreClient) SemanticGlobal(ctx context.Context, projectID, spaceID uuid
 	}
 
 	var result []SearchResultBlockItem
-	if err := json.Unmarshal(body, &result); err != nil {
+	if err := sonic.Unmarshal(body, &result); err != nil {
 		return nil, fmt.Errorf("unmarshal response: %w", err)
 	}
 
@@ -200,7 +201,62 @@ func (c *CoreClient) ExperienceSearch(ctx context.Context, projectID, spaceID uu
 	}
 
 	var result SpaceSearchResult
-	if err := json.Unmarshal(body, &result); err != nil {
+	if err := sonic.Unmarshal(body, &result); err != nil {
+		return nil, fmt.Errorf("unmarshal response: %w", err)
+	}
+
+	return &result, nil
+}
+
+// InsertBlockRequest represents the request for inserting a block
+type InsertBlockRequest struct {
+	ParentID uuid.UUID      `json:"parent_id"`
+	Props    map[string]any `json:"props"`
+	Title    string         `json:"title"`
+	Type     string         `json:"type"`
+}
+
+// InsertBlockResponse represents the response from insert_block endpoint
+type InsertBlockResponse struct {
+	ID uuid.UUID `json:"id"`
+}
+
+// InsertBlock calls the insert_block endpoint
+func (c *CoreClient) InsertBlock(ctx context.Context, projectID, spaceID uuid.UUID, req InsertBlockRequest) (*InsertBlockResponse, error) {
+	endpoint := fmt.Sprintf("%s/api/v1/project/%s/space/%s/insert_block", c.BaseURL, projectID.String(), spaceID.String())
+
+	// Marshal request body
+	body, err := sonic.Marshal(req)
+	if err != nil {
+		return nil, fmt.Errorf("marshal request: %w", err)
+	}
+
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(body))
+	if err != nil {
+		return nil, fmt.Errorf("create request: %w", err)
+	}
+	httpReq.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.HTTPClient.Do(httpReq)
+	if err != nil {
+		return nil, fmt.Errorf("do request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("read response body: %w", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		c.Logger.Error("insert_block request failed",
+			zap.Int("status_code", resp.StatusCode),
+			zap.String("body", string(respBody)))
+		return nil, fmt.Errorf("request failed with status %d: %s", resp.StatusCode, string(respBody))
+	}
+
+	var result InsertBlockResponse
+	if err := sonic.Unmarshal(respBody, &result); err != nil {
 		return nil, fmt.Errorf("unmarshal response: %w", err)
 	}
 

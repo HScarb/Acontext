@@ -1259,7 +1259,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/model.Block"
+                                            "$ref": "#/definitions/httpclient.InsertBlockResponse"
                                         }
                                     }
                                 }
@@ -2043,6 +2043,14 @@ const docTemplate = `{
                 "configs": {
                     "type": "object",
                     "additionalProperties": true
+                }
+            }
+        },
+        "httpclient.InsertBlockResponse": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string"
                 }
             }
         },
