@@ -208,6 +208,9 @@ func BuildContainer() *do.Injector {
 	do.Provide(inj, func(i *do.Injector) (*handler.TaskHandler, error) {
 		return handler.NewTaskHandler(do.MustInvoke[service.TaskService](i)), nil
 	})
+	do.Provide(inj, func(i *do.Injector) (*handler.ToolHandler, error) {
+		return handler.NewToolHandler(do.MustInvoke[*httpclient.CoreClient](i)), nil
+	})
 
 	return inj
 }

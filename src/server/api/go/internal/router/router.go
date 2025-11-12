@@ -86,6 +86,7 @@ type RouterDeps struct {
 	DiskHandler     *handler.DiskHandler
 	ArtifactHandler *handler.ArtifactHandler
 	TaskHandler     *handler.TaskHandler
+	ToolHandler     *handler.ToolHandler
 }
 
 func NewRouter(d RouterDeps) *gin.Engine {
@@ -173,6 +174,12 @@ func NewRouter(d RouterDeps) *gin.Engine {
 				artifact.DELETE("", d.ArtifactHandler.DeleteArtifact)
 				artifact.GET("/ls", d.ArtifactHandler.ListArtifacts)
 			}
+		}
+
+		tool := v1.Group("/tool")
+		{
+			tool.PUT("/name", d.ToolHandler.RenameToolName)
+			tool.GET("/name", d.ToolHandler.GetToolName)
 		}
 	}
 	return r

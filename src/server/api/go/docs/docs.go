@@ -1913,6 +1913,98 @@ const docTemplate = `{
                     }
                 }
             }
+        },
+        "/tool/name": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Get all tool names within a project",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "tool"
+                ],
+                "summary": "Get tool names",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/serializer.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/definitions/httpclient.ToolReferenceData"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            },
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Rename one or more tool names within a project",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "tool"
+                ],
+                "summary": "Rename tool names",
+                "parameters": [
+                    {
+                        "description": "Tool rename request",
+                        "name": "payload",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handler.RenameToolNameReq"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/serializer.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/httpclient.FlagResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
         }
     },
     "definitions": {
@@ -2029,6 +2121,21 @@ const docTemplate = `{
                 }
             }
         },
+        "handler.RenameToolNameReq": {
+            "type": "object",
+            "required": [
+                "rename"
+            ],
+            "properties": {
+                "rename": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                        "$ref": "#/definitions/handler.ToolRenameItem"
+                    }
+                }
+            }
+        },
         "handler.SendMessageReq": {
             "type": "object",
             "required": [
@@ -2044,6 +2151,21 @@ const docTemplate = `{
                         "anthropic"
                     ],
                     "example": "openai"
+                }
+            }
+        },
+        "handler.ToolRenameItem": {
+            "type": "object",
+            "required": [
+                "new_name",
+                "old_name"
+            ],
+            "properties": {
+                "new_name": {
+                    "type": "string"
+                },
+                "old_name": {
+                    "type": "string"
                 }
             }
         },
@@ -2147,6 +2269,17 @@ const docTemplate = `{
                 },
                 "final_answer": {
                     "type": "string"
+                }
+            }
+        },
+        "httpclient.ToolReferenceData": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string"
+                },
+                "sop_count": {
+                    "type": "integer"
                 }
             }
         },

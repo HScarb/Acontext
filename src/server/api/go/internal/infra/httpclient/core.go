@@ -303,3 +303,98 @@ func (c *CoreClient) SessionFlush(ctx context.Context, projectID, sessionID uuid
 
 	return &result, nil
 }
+
+// ToolRenameItem represents a single tool rename operation
+type ToolRenameItem struct {
+	OldName string `json:"old_name"`
+	NewName string `json:"new_name"`
+}
+
+// ToolRenameRequest represents the request for renaming tools
+type ToolRenameRequest struct {
+	Rename []ToolRenameItem `json:"rename"`
+}
+
+// ToolReferenceData represents a tool reference data
+type ToolReferenceData struct {
+	Name     string `json:"name"`
+	SopCount int    `json:"sop_count"`
+}
+
+// ToolRename calls the tool rename endpoint
+func (c *CoreClient) ToolRename(ctx context.Context, projectID uuid.UUID, renameItems []ToolRenameItem) (*FlagResponse, error) {
+	endpoint := fmt.Sprintf("%s/api/v1/project/%s/tool/rename", c.BaseURL, projectID.String())
+
+	// Marshal request body
+	reqBody := ToolRenameRequest{Rename: renameItems}
+	body, err := sonic.Marshal(reqBody)
+	if err != nil {
+		return nil, fmt.Errorf("marshal request: %w", err)
+	}
+
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(body))
+	if err != nil {
+		return nil, fmt.Errorf("create request: %w", err)
+	}
+	httpReq.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.HTTPClient.Do(httpReq)
+	if err != nil {
+		return nil, fmt.Errorf("do request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("read response body: %w", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		c.Logger.Error("tool_rename request failed",
+			zap.Int("status_code", resp.StatusCode),
+			zap.String("body", string(respBody)))
+		return nil, fmt.Errorf("request failed with status %d: %s", resp.StatusCode, string(respBody))
+	}
+
+	var result FlagResponse
+	if err := sonic.Unmarshal(respBody, &result); err != nil {
+		return nil, fmt.Errorf("unmarshal response: %w", err)
+	}
+
+	return &result, nil
+}
+
+// GetToolNames calls the get tool names endpoint
+func (c *CoreClient) GetToolNames(ctx context.Context, projectID uuid.UUID) ([]ToolReferenceData, error) {
+	endpoint := fmt.Sprintf("%s/api/v1/project/%s/tool/name", c.BaseURL, projectID.String())
+
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
+	if err != nil {
+		return nil, fmt.Errorf("create request: %w", err)
+	}
+
+	resp, err := c.HTTPClient.Do(httpReq)
+	if err != nil {
+		return nil, fmt.Errorf("do request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("read response body: %w", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		c.Logger.Error("get_tool_names request failed",
+			zap.Int("status_code", resp.StatusCode),
+			zap.String("body", string(respBody)))
+		return nil, fmt.Errorf("request failed with status %d: %s", resp.StatusCode, string(respBody))
+	}
+
+	var result []ToolReferenceData
+	if err := sonic.Unmarshal(respBody, &result); err != nil {
+		return nil, fmt.Errorf("unmarshal response: %w", err)
+	}
+
+	return result, nil
+}
