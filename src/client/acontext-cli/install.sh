@@ -1,9 +1,16 @@
-#!/bin/bash
+#!/bin/sh
 
 # Acontext CLI Installation Script
 # Supports: Linux, macOS, WSL
 
 set -e
+
+# Ensure we're running in bash for proper color support
+if [ -z "$BASH_VERSION" ]; then
+    if command -v bash >/dev/null 2>&1; then
+        exec bash "$0" "$@"
+    fi
+fi
 
 # Colors for output
 RED='\033[0;31m'
@@ -15,24 +22,25 @@ NC='\033[0m' # No Color
 # Configuration
 REPO="memodb-io/Acontext"
 BINARY_NAME="acontext-cli"
+COMMAND_NAME="acontext"
 INSTALL_DIR="/usr/local/bin"
-VERSION="latest"
+VERSION=""
 
 # Functions
 print_info() {
-    echo -e "${BLUE}ℹ${NC} $1"
+    printf "${BLUE}ℹ${NC} %s\n" "$1"
 }
 
 print_success() {
-    echo -e "${GREEN}✓${NC} $1"
+    printf "${GREEN}✓${NC} %s\n" "$1"
 }
 
 print_warning() {
-    echo -e "${YELLOW}⚠${NC} $1"
+    printf "${YELLOW}⚠${NC} %s\n" "$1"
 }
 
 print_error() {
-    echo -e "${RED}✗${NC} $1"
+    printf "${RED}✗${NC} %s\n" "$1"
 }
 
 # Detect OS and architecture
@@ -78,41 +86,77 @@ check_dependencies() {
     fi
 }
 
+# Get latest version from GitHub
+get_latest_version() {
+    if [ -n "$VERSION" ]; then
+        print_info "Using specified version: $VERSION"
+        return
+    fi
+    
+    print_info "Fetching latest version..."
+    
+    local api_url="https://api.github.com/repos/${REPO}/releases"
+    local version_json
+    
+    if command -v curl &> /dev/null; then
+        version_json=$(curl -fsSL "$api_url" 2>/dev/null)
+    else
+        version_json=$(wget -qO- "$api_url" 2>/dev/null)
+    fi
+    
+    # Extract the latest CLI version (format: cli/vX.X.X)
+    VERSION=$(echo "$version_json" | grep -o '"tag_name": *"cli/v[^"]*"' | head -1 | sed 's/.*"cli\/\(v[^"]*\)".*/\1/')
+    
+    if [ -z "$VERSION" ]; then
+        print_error "Failed to fetch latest version"
+        exit 1
+    fi
+    
+    print_info "Latest version: $VERSION"
+}
+
 # Download binary
 download_binary() {
-    print_info "Downloading ${BINARY_NAME}..."
+    print_info "Downloading ${COMMAND_NAME}..." >&2
     
-    URL="https://github.com/${REPO}/releases/${VERSION}/download/${BINARY_NAME}_${OS}_${ARCH}.tar.gz"
+    # URL format: https://github.com/memodb-io/Acontext/releases/download/cli%2Fv0.0.1/darwin_arm64.tar.gz
+    local encoded_version=$(echo "cli/${VERSION}" | sed 's/\//%2F/g')
+    URL="https://github.com/${REPO}/releases/download/${encoded_version}/${OS}_${ARCH}.tar.gz"
     
     TEMP_DIR=$(mktemp -d)
-    TEMP_FILE="${TEMP_DIR}/${BINARY_NAME}.tar.gz"
+    TEMP_FILE="${TEMP_DIR}/${COMMAND_NAME}.tar.gz"
     
     if command -v curl &> /dev/null; then
         curl -fsSL -o "$TEMP_FILE" "$URL" || {
-            print_error "Failed to download from $URL"
+            print_error "Failed to download from $URL" >&2
             exit 1
         }
     else
         wget -q -O "$TEMP_FILE" "$URL" || {
-            print_error "Failed to download from $URL"
+            print_error "Failed to download from $URL" >&2
             exit 1
         }
     fi
     
     # Extract
-    print_info "Extracting..."
+    print_info "Extracting..." >&2
     cd "$TEMP_DIR"
     tar -xzf "$TEMP_FILE" || {
-        print_error "Failed to extract archive"
+        print_error "Failed to extract archive" >&2
         exit 1
     }
     
-    BINARY_PATH="${TEMP_DIR}/${BINARY_NAME}"
+    # The archive contains 'acontext-cli', but we want to install it as 'acontext'
+    EXTRACTED_BINARY="${TEMP_DIR}/${BINARY_NAME}"
     
-    if [ ! -f "$BINARY_PATH" ]; then
-        print_error "Binary not found in archive"
+    if [ ! -f "$EXTRACTED_BINARY" ]; then
+        print_error "Binary not found in archive" >&2
         exit 1
     fi
+    
+    # Rename to target command name
+    BINARY_PATH="${TEMP_DIR}/${COMMAND_NAME}"
+    mv "$EXTRACTED_BINARY" "$BINARY_PATH"
     
     # Make executable
     chmod +x "$BINARY_PATH"
@@ -129,26 +173,26 @@ install_binary() {
     # Check if sudo is needed
     if [ ! -w "$INSTALL_DIR" ]; then
         print_warning "Need sudo privileges to install to ${INSTALL_DIR}"
-        sudo mv "$BINARY_PATH" "${INSTALL_DIR}/${BINARY_NAME}" || {
+        sudo mv "$BINARY_PATH" "${INSTALL_DIR}/${COMMAND_NAME}" || {
             print_error "Failed to install binary"
             exit 1
         }
     else
-        mv "$BINARY_PATH" "${INSTALL_DIR}/${BINARY_NAME}" || {
+        mv "$BINARY_PATH" "${INSTALL_DIR}/${COMMAND_NAME}" || {
             print_error "Failed to install binary"
             exit 1
         }
     fi
     
-    print_success "Installed ${BINARY_NAME} to ${INSTALL_DIR}"
+    print_success "Installed ${COMMAND_NAME} to ${INSTALL_DIR}"
 }
 
 # Verify installation
 verify_installation() {
-    if command -v "$BINARY_NAME" &> /dev/null; then
-        VERSION_OUTPUT=$($BINARY_NAME version 2>&1 || true)
+    if command -v "$COMMAND_NAME" &> /dev/null; then
         print_success "Installation verified!"
-        print_info "Version: $VERSION_OUTPUT"
+        echo
+        $COMMAND_NAME version 2>&1 || true
         return 0
     else
         print_error "Installation verification failed"
@@ -164,8 +208,10 @@ main() {
     
     detect_platform
     check_dependencies
+    get_latest_version
     
     BINARY_PATH=$(download_binary)
+
     install_binary "$BINARY_PATH"
     
     # Cleanup
@@ -176,7 +222,7 @@ main() {
     
     echo
     print_success "Installation complete!"
-    print_info "Run '${BINARY_NAME} --help' to get started"
+    print_info "Run '${COMMAND_NAME} --help' to get started"
 }
 
 # Parse arguments
@@ -187,11 +233,20 @@ while [[ $# -gt 0 ]]; do
             shift 2
             ;;
         --help)
-            echo "Usage: $0 [--version VERSION] [--help]"
+            echo "Acontext CLI Installation Script"
+            echo ""
+            echo "Usage: $0 [OPTIONS]"
             echo ""
             echo "Options:"
             echo "  --version VERSION  Install specific version (default: latest)"
             echo "  --help             Show this help message"
+            echo ""
+            echo "Examples:"
+            echo "  # Install latest version"
+            echo "  curl -fsSL https://install.acontext.io | sh"
+            echo ""
+            echo "  # Install specific version"
+            echo "  curl -fsSL https://install.acontext.io | sh -s -- --version v0.0.1"
             exit 0
             ;;
         *)
