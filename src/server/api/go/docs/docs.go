@@ -989,6 +989,68 @@ const docTemplate = `{
                 ]
             }
         },
+        "/session/{session_id}/get_learning_status": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Get learning status for a session. Returns the count of space digested tasks and not space digested tasks. If the session is not connected to a space, returns 0 and 0.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "session"
+                ],
+                "summary": "Get learning status",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "format": "uuid",
+                        "description": "Session ID",
+                        "name": "session_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/serializer.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/httpclient.LearningStatusResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                },
+                "x-code-samples": [
+                    {
+                        "label": "Python",
+                        "lang": "python",
+                        "source": "from acontext import AcontextClient\n\nclient = AcontextClient(api_key='sk_project_token')\n\n# Get learning status\nresult = client.sessions.get_learning_status(session_id='session-uuid')\nprint(f\"Space digested: {result.space_digested_count}, Not digested: {result.not_space_digested_count}\")\n"
+                    },
+                    {
+                        "label": "JavaScript",
+                        "lang": "javascript",
+                        "source": "import { AcontextClient } from '@acontext/acontext';\n\nconst client = new AcontextClient({ apiKey: 'sk_project_token' });\n\n// Get learning status\nconst result = await client.sessions.getLearningStatus('session-uuid');\nconsole.log(` + "`" + `Space digested: ${result.space_digested_count}, Not digested: ${result.not_space_digested_count}` + "`" + `);\n"
+                    }
+                ]
+            }
+        },
         "/session/{session_id}/messages": {
             "get": {
                 "security": [
@@ -2662,6 +2724,17 @@ const docTemplate = `{
             "properties": {
                 "id": {
                     "type": "string"
+                }
+            }
+        },
+        "httpclient.LearningStatusResponse": {
+            "type": "object",
+            "properties": {
+                "not_space_digested_count": {
+                    "type": "integer"
+                },
+                "space_digested_count": {
+                    "type": "integer"
                 }
             }
         },

@@ -165,6 +165,13 @@ definitions:
       id:
         type: string
     type: object
+  httpclient.LearningStatusResponse:
+    properties:
+      not_space_digested_count:
+        type: integer
+      space_digested_count:
+        type: integer
+    type: object
   httpclient.SearchResultBlockItem:
     properties:
       block_id:
@@ -1283,6 +1290,58 @@ paths:
           // Flush session buffer
           const result = await client.sessions.flush('session-uuid');
           console.log(result.status);
+  /session/{session_id}/get_learning_status:
+    get:
+      consumes:
+      - application/json
+      description: Get learning status for a session. Returns the count of space digested
+        tasks and not space digested tasks. If the session is not connected to a space,
+        returns 0 and 0.
+      parameters:
+      - description: Session ID
+        format: uuid
+        in: path
+        name: session_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/serializer.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/httpclient.LearningStatusResponse'
+              type: object
+      security:
+      - BearerAuth: []
+      summary: Get learning status
+      tags:
+      - session
+      x-code-samples:
+      - label: Python
+        lang: python
+        source: |
+          from acontext import AcontextClient
+
+          client = AcontextClient(api_key='sk_project_token')
+
+          # Get learning status
+          result = client.sessions.get_learning_status(session_id='session-uuid')
+          print(f"Space digested: {result.space_digested_count}, Not digested: {result.not_space_digested_count}")
+      - label: JavaScript
+        lang: javascript
+        source: |
+          import { AcontextClient } from '@acontext/acontext';
+
+          const client = new AcontextClient({ apiKey: 'sk_project_token' });
+
+          // Get learning status
+          const result = await client.sessions.getLearningStatus('session-uuid');
+          console.log(`Space digested: ${result.space_digested_count}, Not digested: ${result.not_space_digested_count}`);
   /session/{session_id}/messages:
     get:
       consumes:

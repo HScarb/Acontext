@@ -734,6 +734,47 @@
         } ]
       }
     },
+    "/session/{session_id}/get_learning_status" : {
+      "get" : {
+        "description" : "Get learning status for a session. Returns the count of space digested tasks and not space digested tasks. If the session is not connected to a space, returns 0 and 0.",
+        "parameters" : [ {
+          "description" : "Session ID",
+          "in" : "path",
+          "name" : "session_id",
+          "required" : true,
+          "schema" : {
+            "format" : "uuid",
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/_session__session_id__get_learning_status_get_200_response"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "BearerAuth" : [ ]
+        } ],
+        "summary" : "Get learning status",
+        "tags" : [ "session" ],
+        "x-code-samples" : [ {
+          "label" : "Python",
+          "lang" : "python",
+          "source" : "from acontext import AcontextClient\n\nclient = AcontextClient(api_key='sk_project_token')\n\n# Get learning status\nresult = client.sessions.get_learning_status(session_id='session-uuid')\nprint(f\"Space digested: {result.space_digested_count}, Not digested: {result.not_space_digested_count}\")\n"
+        }, {
+          "label" : "JavaScript",
+          "lang" : "javascript",
+          "source" : "import { AcontextClient } from '@acontext/acontext';\n\nconst client = new AcontextClient({ apiKey: 'sk_project_token' });\n\n// Get learning status\nconst result = await client.sessions.getLearningStatus('session-uuid');\nconsole.log(`Space digested: ${result.space_digested_count}, Not digested: ${result.not_space_digested_count}`);\n"
+        } ]
+      }
+    },
     "/session/{session_id}/messages" : {
       "get" : {
         "description" : "Get messages from session. Default format is openai. Can convert to acontext (original) or anthropic format.",
@@ -2059,6 +2100,17 @@
         },
         "type" : "object"
       },
+      "httpclient.LearningStatusResponse" : {
+        "properties" : {
+          "not_space_digested_count" : {
+            "type" : "integer"
+          },
+          "space_digested_count" : {
+            "type" : "integer"
+          }
+        },
+        "type" : "object"
+      },
       "httpclient.SearchResultBlockItem" : {
         "properties" : {
           "block_id" : {
@@ -2539,6 +2591,18 @@
           "properties" : {
             "data" : {
               "$ref" : "#/components/schemas/httpclient.FlagResponse"
+            }
+          },
+          "type" : "object"
+        } ]
+      },
+      "_session__session_id__get_learning_status_get_200_response" : {
+        "allOf" : [ {
+          "$ref" : "#/components/schemas/serializer.Response"
+        }, {
+          "properties" : {
+            "data" : {
+              "$ref" : "#/components/schemas/httpclient.LearningStatusResponse"
             }
           },
           "type" : "object"
