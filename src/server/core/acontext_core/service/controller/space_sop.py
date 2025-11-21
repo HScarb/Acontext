@@ -1,15 +1,8 @@
 from ...schema.block.sop_block import SOPData
-from ..data import message as MD
-from ..data import task as TD
-from ...infra.db import DB_CLIENT
-from ...schema.session.task import TaskStatus
-from ...schema.session.message import MessageBlob
 from ...schema.utils import asUUID
 from ...llm.agent import space_construct as SC
-from ...schema.result import ResultError
-from ...env import LOG, DEFAULT_CORE_CONFIG
+from ...env import LOG
 from ...schema.config import ProjectConfig
-from ...schema.session.task import TaskSchema
 
 
 async def process_sop_complete(
@@ -28,7 +21,7 @@ async def process_sop_complete(
     construct_result = await SC.space_construct_agent_curd(
         project_id,
         space_id,
-        task_id,
+        [task_id],
         [sop_data],
         max_iterations=project_config.default_space_construct_agent_max_iterations,
     )

@@ -12,6 +12,7 @@ class SpaceCtx:
     db_session: AsyncSession
     project_id: asUUID
     space_id: asUUID
+    task_ids: list[asUUID]
     candidate_data: list[GeneralBlockData]
     already_inserted_candidate_data: set[int]
     path_2_block_ids: dict[str, PathNode | None]

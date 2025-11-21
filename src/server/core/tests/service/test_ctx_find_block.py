@@ -1,6 +1,5 @@
 import pytest
-import uuid
-from acontext_core.schema.orm import Block, Project, Space
+from acontext_core.schema.orm import Project, Space
 from acontext_core.schema.orm.block import BLOCK_TYPE_FOLDER, BLOCK_TYPE_PAGE
 from acontext_core.infra.db import DatabaseClient
 from acontext_core.service.data.block import create_new_path_block
@@ -38,6 +37,7 @@ class TestSpaceCtxFindBlock:
                 db_session=session,
                 project_id=project.id,
                 space_id=space.id,
+                task_ids=[],
                 candidate_data=[],
                 already_inserted_candidate_data=[],
                 path_2_block_ids={},
@@ -83,6 +83,7 @@ class TestSpaceCtxFindBlock:
                 db_session=session,
                 project_id=project.id,
                 space_id=space.id,
+                task_ids=[],
                 candidate_data=[],
                 already_inserted_candidate_data=[],
                 path_2_block_ids={},
@@ -139,6 +140,7 @@ class TestSpaceCtxFindBlock:
                 db_session=session,
                 project_id=project.id,
                 space_id=space.id,
+                task_ids=[],
                 candidate_data=[],
                 already_inserted_candidate_data=[],
                 path_2_block_ids={},
@@ -204,6 +206,7 @@ class TestSpaceCtxFindBlock:
                 db_session=session,
                 project_id=project.id,
                 space_id=space.id,
+                task_ids=[],
                 candidate_data=[],
                 already_inserted_candidate_data=[],
                 path_2_block_ids={},
@@ -283,6 +286,7 @@ class TestSpaceCtxFindBlock:
                 db_session=session,
                 project_id=project.id,
                 space_id=space.id,
+                task_ids=[],
                 candidate_data=[],
                 already_inserted_candidate_data=[],
                 path_2_block_ids={},
@@ -319,13 +323,13 @@ class TestSpaceCtxFindBlock:
             # Create a page
             r = await create_new_path_block(session, space.id, "CachedPage")
             assert r.ok()
-            page_id = r.data.id
 
             # Create SpaceCtx
             ctx = SpaceCtx(
                 db_session=session,
                 project_id=project.id,
                 space_id=space.id,
+                task_ids=[],
                 candidate_data=[],
                 already_inserted_candidate_data=[],
                 path_2_block_ids={},
@@ -369,6 +373,7 @@ class TestSpaceCtxFindBlock:
                 db_session=session,
                 project_id=project.id,
                 space_id=space.id,
+                task_ids=[],
                 candidate_data=[],
                 already_inserted_candidate_data=[],
                 path_2_block_ids={},
@@ -404,6 +409,7 @@ class TestSpaceCtxFindBlock:
                 db_session=session,
                 project_id=project.id,
                 space_id=space.id,
+                task_ids=[],
                 candidate_data=[],
                 already_inserted_candidate_data=[],
                 path_2_block_ids={},
@@ -445,6 +451,7 @@ class TestSpaceCtxFindBlock:
                 db_session=session,
                 project_id=project.id,
                 space_id=space.id,
+                task_ids=[],
                 candidate_data=[],
                 already_inserted_candidate_data=[],
                 path_2_block_ids={},
@@ -485,6 +492,7 @@ class TestSpaceCtxFindBlock:
                 db_session=session,
                 project_id=project.id,
                 space_id=space.id,
+                task_ids=[],
                 candidate_data=[],
                 already_inserted_candidate_data=[],
                 path_2_block_ids={},
@@ -545,6 +553,7 @@ class TestSpaceCtxFindBlock:
                 db_session=session,
                 project_id=project.id,
                 space_id=space.id,
+                task_ids=[],
                 candidate_data=[],
                 already_inserted_candidate_data=[],
                 path_2_block_ids={},
@@ -620,6 +629,7 @@ class TestSpaceCtxFindBlock:
                 db_session=session,
                 project_id=project.id,
                 space_id=space.id,
+                task_ids=[],
                 candidate_data=[],
                 already_inserted_candidate_data=[],
                 path_2_block_ids={},
@@ -681,6 +691,7 @@ class TestSpaceCtxFindBlock:
                 db_session=session,
                 project_id=project.id,
                 space_id=space.id,
+                task_ids=[],
                 candidate_data=[],
                 already_inserted_candidate_data=[],
                 path_2_block_ids={},
@@ -724,6 +735,7 @@ class TestSpaceCtxFindBlock:
                 db_session=session,
                 project_id=project.id,
                 space_id=space.id,
+                task_ids=[],
                 candidate_data=[],
                 already_inserted_candidate_data=[],
                 path_2_block_ids={},
@@ -804,6 +816,7 @@ class TestSpaceCtxFindBlock:
                 db_session=session,
                 project_id=project.id,
                 space_id=space.id,
+                task_ids=[],
                 candidate_data=[],
                 already_inserted_candidate_data=[],
                 path_2_block_ids={},

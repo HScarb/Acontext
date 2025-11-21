@@ -1,13 +1,14 @@
-from ..base import Tool, ToolPool
+from ..base import Tool
 from ....schema.llm import ToolSchema
-from ....schema.orm.block import BLOCK_TYPE_FOLDER, BLOCK_TYPE_PAGE
-from ....schema.utils import asUUID
+from ....schema.orm.block import BLOCK_TYPE_PAGE
 from ....schema.result import Result
-from ....service.data import block_nav as BN
-from ....service.data import block as BD
 from ....service.data import block_write as BW
-from ....schema.session.task import TaskStatus
+from ....service.data import task as TD
 from .ctx import SpaceCtx
+
+
+async def set_space_digests(ctx: SpaceCtx, index: int) -> Result[None]:
+    return await TD.set_task_space_digested(ctx.db_session, ctx.task_ids[index])
 
 
 async def _insert_data_handler(
@@ -47,6 +48,7 @@ async def _insert_data_handler(
     )
     if not r.ok():
         return Result.resolve(f"Failed to insert candidate data: {r.error}")
+    await set_space_digests(ctx, candidate_index)
     return Result.resolve(
         f"Inserted candidate data {candidate_index} to page {page_path} after block index {after_block_index}"
     )

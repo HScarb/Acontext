@@ -1,17 +1,12 @@
 from ..data import message as MD
-from ..data import task as TD
 from ...infra.db import DB_CLIENT
 from ...schema.session.task import TaskStatus
 from ...schema.session.message import MessageBlob
 from ...schema.utils import asUUID
 from ...llm.agent import task_sop as TSOP
-from ...schema.result import ResultError
-from ...env import LOG, DEFAULT_CORE_CONFIG
+from ...env import LOG
 from ...schema.config import ProjectConfig
 from ...schema.session.task import TaskSchema
-from ...infra.async_mq import MQ_CLIENT
-from ...schema.mq.sop import SOPComplete
-from ...service.constants import EX, RK
 
 
 async def process_space_task(

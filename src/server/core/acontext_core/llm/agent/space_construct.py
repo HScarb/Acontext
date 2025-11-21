@@ -1,4 +1,4 @@
-from typing import List, Dict, Any
+from typing import List
 
 from ...schema.block.general import GeneralBlockData
 from ...env import LOG, bound_logging_vars
@@ -16,6 +16,7 @@ async def build_space_ctx(
     db_session: AsyncSession,
     project_id: asUUID,
     space_id: asUUID,
+    task_ids: List[asUUID],
     data_candidate: list[dict],
     before_use_ctx: SpaceCtx = None,
 ) -> SpaceCtx:
@@ -23,7 +24,15 @@ async def build_space_ctx(
         before_use_ctx.db_session = db_session
         return before_use_ctx
     LOG.info(f"Building space context for project {project_id} and space {space_id}")
-    ctx = SpaceCtx(db_session, project_id, space_id, data_candidate, set(), {"/": None})
+    ctx = SpaceCtx(
+        db_session=db_session,
+        project_id=project_id,
+        space_id=space_id,
+        task_ids=task_ids,
+        candidate_data=data_candidate,
+        already_inserted_candidate_data=set[int](),
+        path_2_block_ids={"/": None},
+    )
     return ctx
 
 
@@ -40,7 +49,7 @@ def pack_candidate_data_list(data: list[GeneralBlockData]) -> str:
 async def space_construct_agent_curd(
     project_id: asUUID,
     space_id: asUUID,
-    task_id: asUUID,
+    task_ids: List[asUUID],
     sop_datas: List[SOPData],
     max_iterations=16,
 ) -> Result[None]:
@@ -108,6 +117,7 @@ async def space_construct_agent_curd(
                             db_session,
                             project_id,
                             space_id,
+                            task_ids,
                             candidate_data_list,
                             before_use_ctx=USE_CTX,
                         )

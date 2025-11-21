@@ -3,6 +3,7 @@ from sqlalchemy import select, delete, update
 from sqlalchemy.orm import selectinload
 from sqlalchemy.orm.attributes import flag_modified
 from sqlalchemy.ext.asyncio import AsyncSession
+from ...env import LOG
 from ...schema.orm import Task, Message
 from ...schema.result import Result
 from ...schema.utils import asUUID
@@ -125,25 +126,13 @@ async def update_task(
 async def set_task_space_digested(
     db_session: AsyncSession,
     task_id: asUUID,
-) -> Result[bool]:
+) -> Result[None]:
     # Fetch the task to check current space_digested status
-    query = select(Task).where(Task.id == task_id)
-    result = await db_session.execute(query)
-    task = result.scalars().first()
-
-    if task is None:
-        return Result.reject(f"Task {task_id} not found")
-
-    # Return True if space_digested is already True (no update needed)
-    if task.space_digested:
-        return Result.resolve(True)
-
-    # Update space_digested to True
-    task.space_digested = True
+    stmt = update(Task).where(Task.id == task_id).values(space_digested=True)
+    LOG.info(f"Setting task {task_id} space digested to True")
+    await db_session.execute(stmt)
     await db_session.flush()
-
-    # Return False to indicate that space_digested was previously False
-    return Result.resolve(False)
+    return Result.resolve(None)
 
 
 async def insert_task(

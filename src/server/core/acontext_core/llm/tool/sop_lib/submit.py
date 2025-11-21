@@ -2,12 +2,19 @@ from pydantic import ValidationError
 from ..base import Tool
 from ....service.constants import EX, RK
 from ....infra.async_mq import MQ_CLIENT
+from ....infra.db import DB_CLIENT
+from ....service.data import task as TD
 from ....schema.llm import ToolSchema
 from ....schema.result import Result
 from ....schema.block.sop_block import SubmitSOPData, SOPData
 from ....schema.mq.sop import SOPComplete
 from ....env import LOG
 from .ctx import SOPCtx
+
+
+async def set_space_digests(ctx: SOPCtx) -> Result[None]:
+    async with DB_CLIENT.get_session_context() as db_session:
+        return await TD.set_task_space_digested(db_session, ctx.task.id)
 
 
 async def submit_sop_handler(ctx: SOPCtx, llm_arguments: dict) -> Result[str]:
@@ -18,6 +25,7 @@ async def submit_sop_handler(ctx: SOPCtx, llm_arguments: dict) -> Result[str]:
         return Result.reject(f"Invalid SOP data: {str(e)}")
     if not len(sop_data.tool_sops) and not len(sop_data.preferences.strip()):
         LOG.info("Agent submitted an empty SOP, drop")
+        await set_space_digests(ctx)
         return Result.resolve("SOP submitted")
     if is_easy_task:
         # easy task should not have any tool_sops

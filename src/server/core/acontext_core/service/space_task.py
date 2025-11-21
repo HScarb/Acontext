@@ -31,11 +31,7 @@ async def space_complete_new_task(body: NewTaskComplete, message: Message):
         if not r.ok():
             return
         TASK_DATA, _ = r.unpack()
-        r = await TD.set_task_space_digested(db_session, body.task_id)
-        if not r.ok():
-            return
-        already_digested, _ = r.unpack()
-        if already_digested:
+        if TASK_DATA.space_digested:
             LOG.info(f"Task {body.task_id} is already digested")
             return
 

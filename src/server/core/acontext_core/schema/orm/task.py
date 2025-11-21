@@ -5,17 +5,14 @@ from sqlalchemy import (
     Column,
     Integer,
     String,
-    Enum,
-    text,
     CheckConstraint,
     UniqueConstraint,
     Boolean,
 )
 from sqlalchemy.orm import relationship
-from sqlalchemy.dialects.postgresql import JSONB, UUID, ARRAY
-from typing import TYPE_CHECKING, Optional, List
+from sqlalchemy.dialects.postgresql import JSONB, UUID
+from typing import TYPE_CHECKING, List
 from .base import ORM_BASE, CommonMixin
-from ..session.task import TaskStatus
 from ..utils import asUUID
 
 if TYPE_CHECKING:
