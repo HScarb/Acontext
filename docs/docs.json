@@ -157,5 +157,13 @@
       "discord": "https://discord.acontext.io",
       "linkedin": "https://linkedin.com/company/Acontext"
     }
+  },
+  "integrations": {
+    "ga4": {
+      "measurementId": "G-Y2R02LY9NV"
+    },
+    "gtm": {
+      "tagId": "GTM-KQ7H272M"
+    }
   }
 }
