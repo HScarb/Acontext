@@ -1628,6 +1628,130 @@
         "x-codegen-request-body-name" : "payload"
       }
     },
+    "/space/{space_id}/experience_confirmations" : {
+      "get" : {
+        "description" : "Get all experience confirmations in a space with cursor-based pagination",
+        "parameters" : [ {
+          "description" : "Space ID",
+          "in" : "path",
+          "name" : "space_id",
+          "required" : true,
+          "schema" : {
+            "format" : "uuid",
+            "type" : "string"
+          }
+        }, {
+          "description" : "Limit of confirmations to return, default 20. Max 200.",
+          "in" : "query",
+          "name" : "limit",
+          "schema" : {
+            "type" : "integer"
+          }
+        }, {
+          "description" : "Cursor for pagination. Use the cursor from the previous response to get the next page.",
+          "in" : "query",
+          "name" : "cursor",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Order by created_at descending if true, ascending if false (default false)",
+          "in" : "query",
+          "name" : "time_desc",
+          "schema" : {
+            "type" : "boolean"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/_space__space_id__experience_confirmations_get_200_response"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "BearerAuth" : [ ]
+        } ],
+        "summary" : "Get experience confirmations",
+        "tags" : [ "space" ],
+        "x-code-samples" : [ {
+          "label" : "Python",
+          "lang" : "python",
+          "source" : "from acontext import AcontextClient\n\nclient = AcontextClient(api_key='sk_project_token')\n\n# Get unconfirmed experiences\nexperiences = client.spaces.get_unconfirmed_experiences(\n    space_id='space-uuid',\n    limit=20,\n    time_desc=True\n)\nfor experience in experiences.items:\n    print(f\"{experience.id}: {experience.experience_data}\")\n\n# If there are more, use the cursor for pagination\nif experiences.has_more:\n    next_experiences = client.spaces.get_unconfirmed_experiences(\n        space_id='space-uuid',\n        limit=20,\n        cursor=experiences.next_cursor\n    )\n"
+        }, {
+          "label" : "JavaScript",
+          "lang" : "javascript",
+          "source" : "import { AcontextClient } from '@acontext/acontext';\n\nconst client = new AcontextClient({ apiKey: 'sk_project_token' });\n\n// Get unconfirmed experiences\nconst experiences = await client.spaces.getUnconfirmedExperiences('space-uuid', {\n  limit: 20,\n  timeDesc: true\n});\nfor (const experience of experiences.items) {\n  console.log(`${experience.id}: ${JSON.stringify(experience.experience_data)}`);\n}\n\n// If there are more, use the cursor for pagination\nif (experiences.hasMore) {\n  const nextExperiences = await client.spaces.getUnconfirmedExperiences('space-uuid', {\n    limit: 20,\n    cursor: experiences.nextCursor\n  });\n}\n"
+        } ]
+      }
+    },
+    "/space/{space_id}/experience_confirmations/{experience_id}" : {
+      "patch" : {
+        "description" : "Confirm an experience confirmation. If save is false, delete the row. If save is true, get the data first (TODO: process data), then delete the row.",
+        "parameters" : [ {
+          "description" : "Space ID",
+          "in" : "path",
+          "name" : "space_id",
+          "required" : true,
+          "schema" : {
+            "format" : "uuid",
+            "type" : "string"
+          }
+        }, {
+          "description" : "Experience Confirmation ID",
+          "in" : "path",
+          "name" : "experience_id",
+          "required" : true,
+          "schema" : {
+            "format" : "uuid",
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/handler.ConfirmExperienceReq"
+              }
+            }
+          },
+          "description" : "Confirmation request with save flag",
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/_space__space_id__experience_confirmations__experience_id__patch_200_response"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "BearerAuth" : [ ]
+        } ],
+        "summary" : "Confirm experience",
+        "tags" : [ "space" ],
+        "x-code-samples" : [ {
+          "label" : "Python",
+          "lang" : "python",
+          "source" : "from acontext import AcontextClient\n\nclient = AcontextClient(api_key='sk_project_token')\n\n# Confirm experience and save data\nconfirmation = client.spaces.confirm_experience(\n    space_id='space-uuid',\n    experience_id='experience-uuid',\n    save=True\n)\nprint(f\"Saved confirmation: {confirmation.experience_data}\")\n\n# Confirm experience without saving (just delete)\nclient.spaces.confirm_experience(\n    space_id='space-uuid',\n    experience_id='experience-uuid',\n    save=False\n)\n"
+        }, {
+          "label" : "JavaScript",
+          "lang" : "javascript",
+          "source" : "import { AcontextClient } from '@acontext/acontext';\n\nconst client = new AcontextClient({ apiKey: 'sk_project_token' });\n\n// Confirm experience and save data\nconst confirmation = await client.spaces.confirmExperience('space-uuid', 'experience-uuid', {\n  save: true\n});\nconsole.log(`Saved confirmation: ${JSON.stringify(confirmation.experience_data)}`);\n\n// Confirm experience without saving (just delete)\nawait client.spaces.confirmExperience('space-uuid', 'experience-uuid', {\n  save: false\n});\n"
+        } ],
+        "x-codegen-request-body-name" : "request"
+      }
+    },
     "/space/{space_id}/experience_search" : {
       "get" : {
         "description" : "Retrieve the experience search results for a given query within a space by its ID",
@@ -1920,6 +2044,15 @@
             "type" : "string"
           }
         },
+        "type" : "object"
+      },
+      "handler.ConfirmExperienceReq" : {
+        "properties" : {
+          "save" : {
+            "type" : "boolean"
+          }
+        },
+        "required" : [ "save" ],
         "type" : "object"
       },
       "handler.ConnectToSpaceReq" : {
@@ -2280,6 +2413,30 @@
         },
         "type" : "object"
       },
+      "model.ExperienceConfirmation" : {
+        "properties" : {
+          "created_at" : {
+            "type" : "string"
+          },
+          "experience_data" : {
+            "properties" : { },
+            "type" : "object"
+          },
+          "id" : {
+            "type" : "string"
+          },
+          "space_id" : {
+            "type" : "string"
+          },
+          "task_id" : {
+            "type" : "string"
+          },
+          "updated_at" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
       "model.Message" : {
         "properties" : {
           "created_at" : {
@@ -2464,6 +2621,23 @@
           "items" : {
             "items" : {
               "$ref" : "#/components/schemas/model.Disk"
+            },
+            "type" : "array"
+          },
+          "next_cursor" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "service.ListExperienceConfirmationsOutput" : {
+        "properties" : {
+          "has_more" : {
+            "type" : "boolean"
+          },
+          "items" : {
+            "items" : {
+              "$ref" : "#/components/schemas/model.ExperienceConfirmation"
             },
             "type" : "array"
           },
@@ -2777,6 +2951,30 @@
           "properties" : {
             "data" : {
               "$ref" : "#/components/schemas/model.Block"
+            }
+          },
+          "type" : "object"
+        } ]
+      },
+      "_space__space_id__experience_confirmations_get_200_response" : {
+        "allOf" : [ {
+          "$ref" : "#/components/schemas/serializer.Response"
+        }, {
+          "properties" : {
+            "data" : {
+              "$ref" : "#/components/schemas/service.ListExperienceConfirmationsOutput"
+            }
+          },
+          "type" : "object"
+        } ]
+      },
+      "_space__space_id__experience_confirmations__experience_id__patch_200_response" : {
+        "allOf" : [ {
+          "$ref" : "#/components/schemas/serializer.Response"
+        }, {
+          "properties" : {
+            "data" : {
+              "$ref" : "#/components/schemas/model.ExperienceConfirmation"
             }
           },
           "type" : "object"
