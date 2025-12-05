@@ -63,7 +63,7 @@ so that your agent can be more stable and provide greater value to your users.
 
 
 
-# 🌲 Core Concepts
+# 💡 Core Concepts
 
 - [**Session**](https://docs.acontext.io/store/messages/multi-provider) - You can store context in Acontext, just like a Database but only used for context.
   - [**Task Agent**](https://docs.acontext.io/observe/agent_tasks) - Background TODO agent that collects task's status, progress and preferences.
@@ -90,11 +90,10 @@ so that your agent can be more stable and provide greater value to your users.
                   Skills guide the agent
 ```
 
-**Tasks**
 
-For each session, Acontext will automatically track tasks.
+
 <details>
-<summary>example data</summary>
+<summary>📖 Task Structure</summary>
 
 ```json
 {
@@ -111,11 +110,10 @@ For each session, Acontext will automatically track tasks.
 ```
 </details>
 
-**Space**
 
-The self-learned skill will look like this:
+
 <details>
-<summary>example data</summary>
+<summary>📖 Skill Structure</summary>
 
 
 ```json
@@ -134,10 +132,8 @@ The self-learned skill will look like this:
 
 
 
-Agent Skills will be stored in a structured `Space`, with folders, pages and blocks. For example:
-
 <details>
-<summary>example data</summary>
+<summary>📖 Space Structure</summary>
 
 ```txt
 /
