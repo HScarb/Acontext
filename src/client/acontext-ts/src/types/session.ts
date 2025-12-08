@@ -111,3 +111,42 @@ export const TokenCountsSchema = z.object({
 
 export type TokenCounts = z.infer<typeof TokenCountsSchema>;
 
+/**
+ * Parameters for the remove_tool_result edit strategy.
+ */
+export const RemoveToolResultParamsSchema = z.object({
+  /**
+   * Number of most recent tool results to keep with original content.
+   * @default 3
+   */
+  keep_recent_n_tool_results: z.number().optional(),
+
+  /**
+   * Custom text to replace old tool results with.
+   * @default "Done"
+   */
+  tool_result_placeholder: z.string().optional(),
+});
+
+export type RemoveToolResultParams = z.infer<typeof RemoveToolResultParamsSchema>;
+
+/**
+ * Edit strategy to replace old tool results with placeholder text.
+ * 
+ * Example: { type: 'remove_tool_result', params: { keep_recent_n_tool_results: 5, tool_result_placeholder: 'Cleared' } }
+ */
+export const RemoveToolResultStrategySchema = z.object({
+  type: z.literal('remove_tool_result'),
+  params: RemoveToolResultParamsSchema,
+});
+
+export type RemoveToolResultStrategy = z.infer<typeof RemoveToolResultStrategySchema>;
+
+/**
+ * Union schema for all edit strategies.
+ * When adding new strategies, extend this union: z.union([RemoveToolResultStrategySchema, OtherStrategySchema, ...])
+ */
+export const EditStrategySchema = z.union([RemoveToolResultStrategySchema]);
+
+export type EditStrategy = z.infer<typeof EditStrategySchema>;
+

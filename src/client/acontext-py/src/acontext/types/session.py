@@ -1,8 +1,38 @@
 """Type definitions for session, message, and task resources."""
 
-from typing import Any
+from typing import Any, Literal, NotRequired, TypedDict, Union
 
 from pydantic import BaseModel, Field
+
+
+class RemoveToolResultParams(TypedDict, total=False):
+    """Parameters for the remove_tool_result edit strategy.
+
+    Attributes:
+        keep_recent_n_tool_results: Number of most recent tool results to keep with original content.
+            Defaults to 3 if not specified.
+        tool_result_placeholder: Custom text to replace old tool results with.
+            Defaults to "Done" if not specified.
+    """
+
+    keep_recent_n_tool_results: NotRequired[int]
+    tool_result_placeholder: NotRequired[str]
+
+
+class RemoveToolResultStrategy(TypedDict):
+    """Edit strategy to replace old tool results with placeholder text.
+
+    Example:
+        {"type": "remove_tool_result", "params": {"keep_recent_n_tool_results": 5, "tool_result_placeholder": "Cleared"}}
+    """
+
+    type: Literal["remove_tool_result"]
+    params: RemoveToolResultParams
+
+
+# Union type for all edit strategies
+# When adding new strategies, add them to this Union: EditStrategy = Union[RemoveToolResultStrategy, OtherStrategy, ...]
+EditStrategy = Union[RemoveToolResultStrategy]
 
 
 class Asset(BaseModel):
@@ -138,4 +168,7 @@ class LearningStatus(BaseModel):
 class TokenCounts(BaseModel):
     """Response model for token counts."""
 
-    total_tokens: int = Field(..., description="Total token count for all text and tool-call parts in a session")
+    total_tokens: int = Field(
+        ...,
+        description="Total token count for all text and tool-call parts in a session",
+    )

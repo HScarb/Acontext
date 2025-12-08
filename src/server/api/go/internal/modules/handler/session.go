@@ -16,6 +16,7 @@ import (
 	"github.com/memodb-io/Acontext/internal/modules/serializer"
 	"github.com/memodb-io/Acontext/internal/modules/service"
 	"github.com/memodb-io/Acontext/internal/pkg/converter"
+	"github.com/memodb-io/Acontext/internal/pkg/editor"
 	"github.com/memodb-io/Acontext/internal/pkg/normalizer"
 	"github.com/memodb-io/Acontext/internal/pkg/tokenizer"
 	"gorm.io/datatypes"
@@ -57,7 +58,7 @@ type GetSessionsReq struct {
 //	@Param			not_connected	query	boolean	false	"Filter sessions not connected to any space (default false)"	example(false)
 //	@Param			limit			query	integer	false	"Limit of sessions to return, default 20. Max 200."
 //	@Param			cursor			query	string	false	"Cursor for pagination. Use the cursor from the previous response to get the next page."
-//	@Param			time_desc		query	string	false	"Order by created_at descending if true, ascending if false (default false)"	example:"false"
+//	@Param			time_desc		query	string	false	"Order by created_at descending if true, ascending if false (default false)"	example(false)
 //	@Security		BearerAuth
 //	@Success		200	{object}	serializer.Response{data=service.ListSessionsOutput}
 //	@Router			/session [get]
@@ -468,6 +469,7 @@ type GetMessagesReq struct {
 	WithAssetPublicURL bool   `form:"with_asset_public_url,default=true" json:"with_asset_public_url" example:"true"`
 	Format             string `form:"format,default=openai" json:"format" binding:"omitempty,oneof=acontext openai anthropic" example:"openai" enums:"acontext,openai,anthropic"`
 	TimeDesc           bool   `form:"time_desc,default=false" json:"time_desc" example:"false"`
+	EditStrategies     string `form:"edit_strategies" json:"edit_strategies" example:"[{\"type\":\"remove_tool_result\",\"params\":{\"keep_recent_n_tool_results\":3}}]"`
 }
 
 // GetMessages godoc
@@ -480,9 +482,10 @@ type GetMessagesReq struct {
 //	@Param			session_id				path	string	true	"Session ID"	format(uuid)
 //	@Param			limit					query	integer	false	"Limit of messages to return. Max 200. If limit is 0 or not provided, all messages will be returned."
 //	@Param			cursor					query	string	false	"Cursor for pagination. Use the cursor from the previous response to get the next page."
-//	@Param			with_asset_public_url	query	string	false	"Whether to return asset public url, default is true"								example:"true"
+//	@Param			with_asset_public_url	query	string	false	"Whether to return asset public url, default is true"								example(true)
 //	@Param			format					query	string	false	"Format to convert messages to: acontext (original), openai (default), anthropic."	enums(acontext,openai,anthropic)
-//	@Param			time_desc				query	string	false	"Order by created_at descending if true, ascending if false (default false)"		example:"false"
+//	@Param			time_desc				query	string	false	"Order by created_at descending if true, ascending if false (default false)"		example(false)
+//	@Param			edit_strategies			query	string	false	"JSON array of edit strategies to apply before format conversion"					example([{"type":"remove_tool_result","params":{"keep_recent_n_tool_results":3}}])
 //	@Security		BearerAuth
 //	@Success		200	{object}	serializer.Response{data=service.GetMessagesOutput}
 //	@Router			/session/{session_id}/messages [get]
@@ -506,6 +509,15 @@ func (h *SessionHandler) GetMessages(c *gin.Context) {
 		limit = *req.Limit
 	}
 
+	// Parse edit strategies if provided
+	var editStrategies []editor.StrategyConfig
+	if req.EditStrategies != "" {
+		if err := sonic.Unmarshal([]byte(req.EditStrategies), &editStrategies); err != nil {
+			c.JSON(http.StatusBadRequest, serializer.ParamErr("invalid edit_strategies JSON", err))
+			return
+		}
+	}
+
 	out, err := h.svc.GetMessages(c.Request.Context(), service.GetMessagesInput{
 		SessionID:          sessionID,
 		Limit:              limit,
@@ -513,6 +525,7 @@ func (h *SessionHandler) GetMessages(c *gin.Context) {
 		WithAssetPublicURL: req.WithAssetPublicURL,
 		AssetExpire:        time.Hour * 24,
 		TimeDesc:           req.TimeDesc,
+		EditStrategies:     editStrategies,
 	})
 	if err != nil {
 		c.JSON(http.StatusBadRequest, serializer.DBErr("", err))
