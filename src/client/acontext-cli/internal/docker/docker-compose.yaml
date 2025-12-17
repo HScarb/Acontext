@@ -67,91 +67,79 @@ services:
     image: chrislusf/seaweedfs:4.02
     container_name: acontext-server-seaweedfs
     restart: unless-stopped
-    user: root  # https://github.com/seaweedfs/seaweedfs/pull/7399
+    user: root # https://github.com/seaweedfs/seaweedfs/pull/7399
+
     environment:
-      # S3 credentials - no config file needed!
+      # S3 credentials
       WEED_S3_ACCESS_KEY: ${S3_ACCESS_KEY:-acontext}
       WEED_S3_SECRET_KEY: ${S3_SECRET_KEY:-helloworld}
+
       # Storage settings
       WEED_MASTER_VOLUME_GROWTH_COPY_1: 1
       WEED_MASTER_DEFAULT_REPLICATION: "000"
+
     command: >
-      server
-      -s3
-      -s3.port=9000
-      -dir=/data
-      -volume.max=100
-      -volume.publicUrl=${S3_ENDPOINT:-http://127.0.0.1:19000}
-      -ip=acontext-server-seaweedfs
-      -ip.bind=0.0.0.0
-      -metricsPort=9324
+      server -s3 -s3.port=9000 -dir=/data -volume.max=100 -volume.publicUrl=http://acontext-server-seaweedfs:9000 -ip=acontext-server-seaweedfs -ip.bind=0.0.0.0 -metricsPort=9324
+
     ports:
-      - "${S3_API_EXPORT_PORT:-19000}:9000" # S3 API (compatible with MinIO port)
-      - "${S3_CONSOLE_EXPORT_PORT:-19001}:8888" # Filer UI (mapped to 9001 for consistency)
-      - "9333:9333" # Master UI (additional)
+      - "${S3_API_EXPORT_PORT:-19000}:9000" # S3 API
+      - "${S3_CONSOLE_EXPORT_PORT:-19001}:8888" # Filer UI
+      - "9333:9333" # Master UI
+
     volumes:
-      - ${S3_LOCATION:-./acontext_data/s3}:/data
+      - ${S3_LOCATION:-./db/s3}:/data
     healthcheck:
       test:
         [
           "CMD-SHELL",
-          "wget -q -O- http://acontext-server-seaweedfs:9333/cluster/status || exit 1",
+          "wget -q -O- http://localhost:9000 >/dev/null 2>&1 || exit 1",
         ]
-      interval: 20s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
 
-  # init Bucket for SeaweedFS
+  # --- Init Bucket for SeaweedFS ---
   acontext-server-seaweedfs-setup:
     image: amazon/aws-cli:2.32.6
     container_name: acontext-server-seaweedfs-setup
+    restart: "no"
+
     depends_on:
       acontext-server-seaweedfs:
         condition: service_healthy
+
     environment:
       AWS_ACCESS_KEY_ID: ${S3_ACCESS_KEY:-acontext}
       AWS_SECRET_ACCESS_KEY: ${S3_SECRET_KEY:-helloworld}
       AWS_DEFAULT_REGION: ${S3_REGION:-auto}
-    entrypoint: >
-      /bin/sh -c "
-      aws configure set default.s3.signature_version s3v4 &&
-      BUCKET_NAME=${S3_BUCKET:-acontext-assets} &&
-      echo 'Creating bucket: '$$BUCKET_NAME &&
-      aws --endpoint-url=http://acontext-server-seaweedfs:9000 s3 mb s3://$$BUCKET_NAME 2>/dev/null || true &&
-      echo 'Verifying bucket exists...' &&
-      for i in 1 2 3 4 5; do
-        if aws --endpoint-url=http://acontext-server-seaweedfs:9000 s3 ls s3://$$BUCKET_NAME >/dev/null 2>&1; then
-          echo '✅ SeaweedFS ready with bucket: '$$BUCKET_NAME &&
-          exit 0
-        fi
-        echo 'Waiting for bucket to be available... (attempt '$$i'/5)' &&
-        sleep 2
-      done &&
-      echo '❌ Failed to verify bucket creation' &&
-      exit 1
-      "
-    restart: "no"
+
+    entrypoint:
+      [
+        "/bin/sh",
+        "-c",
+        'set -e; BUCKET_NAME=$${S3_BUCKET:-acontext-assets}; echo "Creating bucket: $$BUCKET_NAME"; aws --endpoint-url=http://acontext-server-seaweedfs:9000 s3 mb s3://$$BUCKET_NAME 2>/dev/null || true; echo "Verifying bucket exists..."; for i in 1 2 3 4 5 6 7 8 9 10; do if aws --endpoint-url=http://acontext-server-seaweedfs:9000 s3 ls s3://$$BUCKET_NAME >/dev/null 2>&1; then echo "SeaweedFS ready with bucket: $$BUCKET_NAME"; exit 0; fi; echo "Waiting for bucket... (attempt $$i/10)"; sleep 3; done; echo "Failed to verify bucket creation"; exit 1',
+      ]
 
   # --- Jaeger (OpenTelemetry Collector) ---
   acontext-server-jaeger:
     image: jaegertracing/all-in-one:1.75.0
     container_name: acontext-server-jaeger
     restart: unless-stopped
-    user: root  # Run as root to ensure write permissions to mounted volume
+    user: root # Run as root to ensure write permissions to mounted volume
     environment:
       COLLECTOR_OTLP_ENABLED: "true"
       # Use Badger as storage backend (local file storage, suitable for development)
       SPAN_STORAGE_TYPE: "badger"
-      BADGER_EPHEMERAL: "false"  # Disable ephemeral storage, enable persistence
+      BADGER_EPHEMERAL: "false" # Disable ephemeral storage, enable persistence
       BADGER_DIRECTORY: "/badger/data"
-      BADGER_SPAN_STORE_TTL: "168h"  # Data retention: 7 days
+      BADGER_SPAN_STORE_TTL: "168h" # Data retention: 7 days
     ports:
-      - "${JAEGER_UI_EXPORT_PORT:-16686}:16686"  # Jaeger UI
-      - "${JAEGER_OTLP_GRPC_EXPORT_PORT:-4317}:4317"  # OTLP gRPC receiver
-      - "${JAEGER_OTLP_HTTP_EXPORT_PORT:-4318}:4318"  # OTLP HTTP receiver
-      - "14250:14250"  # gRPC (model.proto)
-      - "14268:14268"  # HTTP (thrift)
+      - "${JAEGER_UI_EXPORT_PORT:-16686}:16686" # Jaeger UI
+      - "${JAEGER_OTLP_GRPC_EXPORT_PORT:-4317}:4317" # OTLP gRPC receiver
+      - "${JAEGER_OTLP_HTTP_EXPORT_PORT:-4318}:4318" # OTLP HTTP receiver
+      - "14250:14250" # gRPC (model.proto)
+      - "14268:14268" # HTTP (thrift)
     volumes:
       - ${JAEGER_STORAGE_LOCATION:-./acontext_data/jaeger}:/badger/data
     healthcheck:
@@ -189,11 +177,7 @@ services:
     volumes:
       - ${CORE_CONFIG_YAML_FILE:-./config.yaml}:/app/config.yaml:ro
     healthcheck:
-      test:
-        [
-          "CMD-SHELL",
-          "wget -q -O- http://localhost:8000/health || exit 1",
-        ]
+      test: ["CMD-SHELL", "wget -q -O- http://localhost:8000/health || exit 1"]
       interval: 15s
       timeout: 5s
       retries: 3
@@ -281,4 +265,3 @@ services:
       - "${UI_EXPORT_PORT:-3000}:3000"
     depends_on:
       - acontext-server-api
-
