@@ -36,36 +36,56 @@ graph TB
 ### 1.2 核心功能模块
 
 ```mermaid
-mindmap
-  root((Acontext))
-    Store
-      Session 会话存储
-        多 LLM 格式支持
-        消息树结构(分支对话)
-      Disk 磁盘存储
-        文件路径管理
-        公开URL下载
-    Observe
-      Task Agent
-        任务自动识别
-        状态追踪
-        进度摘要
-        偏好收集
-      智能缓冲
-        批量处理
-        减少 LLM 调用
-    Learn
-      SOP 提取
-        复杂度评估
-        工具序列抽象
-      Space 知识库
-        层次化组织
-        向量搜索
-        Agentic 搜索
-    Dashboard
-      会话回放
-      任务状态
-      SOP 浏览
+flowchart TB
+    Core((Acontext))
+
+    subgraph Store["📦 Store"]
+        direction TB
+        S1["Session 会话存储"]
+        S1a["多 LLM 格式支持"]
+        S1b["消息树结构(分支对话)"]
+        S2["Disk 磁盘存储"]
+        S2a["文件路径管理"]
+        S2b["公开URL下载"]
+        S1 --- S1a & S1b
+        S2 --- S2a & S2b
+    end
+
+    subgraph Observe["👁️ Observe"]
+        direction TB
+        O1["Task Agent"]
+        O1a["任务自动识别"]
+        O1b["状态追踪"]
+        O1c["进度摘要"]
+        O1d["偏好收集"]
+        O2["智能缓冲"]
+        O2a["批量处理"]
+        O2b["减少 LLM 调用"]
+        O1 --- O1a & O1b & O1c & O1d
+        O2 --- O2a & O2b
+    end
+
+    subgraph Learn["🎓 Learn"]
+        direction TB
+        L1["SOP 提取"]
+        L1a["复杂度评估"]
+        L1b["工具序列抽象"]
+        L2["Space 知识库"]
+        L2a["层次化组织"]
+        L2b["向量搜索"]
+        L2c["Agentic 搜索"]
+        L1 --- L1a & L1b
+        L2 --- L2a & L2b & L2c
+    end
+
+    subgraph Dashboard["📊 Dashboard"]
+        direction TB
+        D1["会话回放"]
+        D2["任务状态"]
+        D3["SOP 浏览"]
+    end
+
+    Core --> Store & Observe & Learn & Dashboard
 ```
 
 ### 1.3 核心数据流
@@ -106,9 +126,9 @@ mindmap
       开发提效
         P0 统一 Session 存储
         P0 即插即用 SDK
+        P0 Context 操作
         P1 主流框架无感接入
         P1 可视化 Dashboard
-        P1 Context 操作
         P2 Prompt 模板市场
         P2 Built-in Tool
         P1 任务状态/监控告警
@@ -122,13 +142,13 @@ mindmap
       P2 SOP/Skill 市场
 ```
 
-### 2.2 功能详细设计
+ ### 2.2 功能详细设计
 
 #### 2.2.1 降低 TCO - 开发提效
 
 ##### P0: 统一 Session 存储
 
-**目标**: 开发者无需自建消息存储，一套 API 管理所有对话历史
+**目标**: 开发者无需自建消息存储，一套 API 托管所有对话历史
 
 ```mermaid
 graph LR
@@ -137,12 +157,12 @@ graph LR
     C[Gemini Format] --> S
     S --> D[(Cloud Storage)]
     S --> E[消息树管理]
-    S --> F[分支/回滚]
+    S --> F[分支/回滚/复制]
 ```
 
 **核心能力**:
 - 多 LLM 消息格式统一适配
-- 消息树结构：支持 retry、edit、branch
+- 消息树结构：支持 retry、edit、branch、clone
 - 元数据关联：tool_call_id、图片、文件
 - 自动持久化 + 按需加载
 
@@ -174,15 +194,94 @@ const session = await ctx.session.create();
 
 ---
 
+##### P0: Context 操作
+
+**目标**: 一套 API 完成上下文工程的常见操作
+
+###### 即时 Context 操作
+
+对 Session 状态的即时管理，支持快照、分支、回滚等场景。
+
+| 操作 | 说明 | 用途 |
+|------|------|------|
+| **Checkpoint** | 保存当前状态快照 | 断点恢复、回滚 |
+| **Restore** | 恢复到某个快照 | 状态回退 |
+| **Clone** | 复制 Session | A/B 测试、并行探索 |
+| **Branch** | 从某消息分叉 | 多路径尝试 |
+| **Merge** | 合并两个 Session | 多 Agent 协作后合并结果 |
+
+```python
+# Checkpoint: 保存快照
+cp_id = ctx.session.checkpoint(session_id)
+
+# Restore: 恢复到快照
+ctx.session.restore(session_id, checkpoint_id=cp_id)
+
+# Clone: 复制整个 Session
+new_session = ctx.session.clone(session_id)
+
+# Branch: 从消息 M 分叉
+new_session = ctx.session.branch(session_id, from_message_id="msg_xxx")
+
+# Merge: 合并两个 Session
+ctx.session.merge(target_session_id, source_session_id, strategy="interleave")
+```
+
+###### Context 编辑
+
+对消息内容的编辑与优化，分为客户端操作和 LLM 辅助操作。
+
+| 类型 | 操作 | 说明 | 用途 |
+|------|------|------|------|
+| **客户端** | Window | 滑动窗口截取 | 控制上下文长度 |
+| **客户端** | Remove Tool Response | 移除 tool_call 响应内容 | 减少冗余 Token |
+| **客户端** | Truncate | 截断超长消息 | Token 限制 |
+| **客户端** | Mask | 按规则遮蔽敏感信息 | 隐私保护、日志脱敏 |
+| **LLM** | Compress | 压缩历史消息为摘要 | 长对话 Token 优化 |
+| **LLM** | Deduplicate | 去除重复/相似内容 | 信息去重 |
+| **LLM** | Anonymize | 智能识别并脱敏 PII | 合规、隐私保护 |
+
+```python
+# 客户端操作（纯本地，无 LLM 调用）
+ctx.context.window(session_id, last_n=10)                      # 保留最近 10 条
+ctx.context.remove_tool_response(session_id, keep_summary=True) # 移除 tool 响应
+ctx.context.truncate(session_id, max_tokens=4000)              # 截断到 4000 tokens
+ctx.context.mask(session_id, patterns=["email", "phone"])      # 正则规则脱敏
+
+# LLM 辅助操作（需调用 LLM）
+ctx.context.compress(session_id, keep_last=5)    # 压缩前 N 条消息为摘要
+ctx.context.deduplicate(session_id)              # 去除重复内容
+ctx.context.anonymize(session_id)                # 智能 PII 脱敏
+```
+
+###### 高级操作
+
+跨 Session 的复杂操作，支持多 Agent 协作场景。
+
+| 操作 | 说明 | 用途 |
+|------|------|------|
+| **Handoff** | 准备交接上下文 | 多 Agent 接力时精简传递 |
+
+```python
+# Handoff: 生成交接包（摘要 + 关键决策 + 待办）
+handoff_context = ctx.context.handoff(
+    session_id,
+    include=["summary", "decisions", "todos"],
+    target_agent="support_agent"
+)
+# 返回结构化的交接上下文，可直接注入目标 Agent
+```
+
+---
+
 ##### P1: 主流框架无感接入
 
 **目标**: 现有 Agent 代码零改动或极少改动即可接入
 
 | 框架 | 接入方式 | 复杂度 |
 |------|----------|--------|
-| LangGraph | Checkpointer 接口实现 | 低 |
 | OpenAI Agent SDK | Middleware 注入 | 低 |
-| LangChain | Memory 接口实现 | 中 |
+| LangChain | Middleware 注入 | 中 |
 | AutoGen | 自定义 Agent 包装 | 中 |
 
 ```python
@@ -223,32 +322,6 @@ graph.compile(checkpointer=AgentContextCheckpointer(session_id="xxx"))
 - 任务状态实时展示
 - Token 消耗统计
 - 错误日志与追踪
-
----
-
-##### P1: Context 操作
-
-**目标**: 一套 API 完成上下文工程的常见操作
-
-| 操作 | 说明 | 用途 |
-|------|------|------|
-| **Compress** | 压缩历史消息为摘要 | 长对话 Token 优化 |
-| **Checkpoint** | 保存当前状态快照 | 断点恢复、回滚 |
-| **Clone** | 复制 Session | A/B 测试、并行探索 |
-| **Branch** | 从某消息分叉 | 多路径尝试 |
-| **Window** | 滑动窗口截取 | 控制上下文长度 |
-
-```python
-# Compress: 压缩前 N 条消息
-ctx.session.compress(session_id, keep_last=5)
-
-# Checkpoint: 保存快照
-cp_id = ctx.session.checkpoint(session_id)
-ctx.session.restore(session_id, checkpoint_id=cp_id)
-
-# Branch: 从消息 M 分叉
-new_session = ctx.session.branch(session_id, from_message_id="msg_xxx")
-```
 
 ---
 
